@@ -8,7 +8,7 @@
 
 **适视 · 为你的电视，匹配真正合适的应用**
 
-[English](#english) · [简体中文](#简体中文) · [Download](https://github.com/AptellyTV/aptellyTV/releases/latest)
+[English](#english) · [简体中文](#简体中文) · [Source](app/src/main) · [Download](https://github.com/AptellyTV/aptellyTV/releases/latest)
 
 </div>
 
@@ -52,7 +52,21 @@ system version, region, and remote-control experience.
 
 The Aptelly Android client is released under the **Apache License 2.0**. Third-party
 components remain subject to their respective licenses. The license does not grant
-rights to the Aptelly name, logo, or trademarks. See [LICENSE](LICENSE).
+rights to the Aptelly name, logo, or trademarks. See [LICENSE](LICENSE),
+[third-party notices](NOTICE.md), and [trademark terms](TRADEMARKS.md).
+
+### Build from source
+
+The repository contains the complete Android client source. Install JDK 21 and the
+Android SDK, then run:
+
+```sh
+./gradlew --no-daemon testDebugUnitTest lintDebug assembleDebug
+```
+
+The build downloads the pinned official Clash Meta APK and verifies its SHA-256
+before packaging. Cloud services, production data, signing keys, and operational
+systems are not part of this client repository. See [release policy](RELEASING.md).
 
 Third-party services, subscriptions, accounts, region availability, DRM, and
 playback rights remain controlled by their respective providers. Aptelly does not
@@ -91,7 +105,19 @@ Aptelly（适视）是面向 Android TV 的电视助手，它能帮您找到与�
 ### 开源协议
 
 Aptelly Android 客户端采用 **Apache License 2.0** 开源协议发布。第三方组件继续适用其
-各自的许可证；该协议不授予 Aptelly 名称、Logo 或商标的使用权。详见 [LICENSE](LICENSE)。
+各自的许可证；该协议不授予 Aptelly 名称、Logo 或商标的使用权。详见 [LICENSE](LICENSE)、
+[第三方组件声明](NOTICE.md)和[商标条款](TRADEMARKS.md)。
+
+### 从源码构建
+
+本仓库包含完整 Android 客户端源码。安装 JDK 21 和 Android SDK 后运行：
+
+```sh
+./gradlew --no-daemon testDebugUnitTest lintDebug assembleDebug
+```
+
+构建时会下载固定版本的官方 Clash Meta APK，并在打包前核验 SHA-256。云端服务、生产数据、
+签名密钥和运营系统不属于客户端公开仓库。发布规范详见 [RELEASING.md](RELEASING.md)。
 
 第三方服务的账号、订阅、地区可用性、DRM 和播放权益均由对应服务商决定。Aptelly 不提供
 第三方账号、观看权益或 VPN 配置。

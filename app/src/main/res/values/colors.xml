@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="white">#FFFFFFFF</color>
+    <color name="ink">#FF07111E</color>
+    <color name="muted">#B8FFFFFF</color>
+    <color name="glass">#2EFFFFFF</color>
+</resources>

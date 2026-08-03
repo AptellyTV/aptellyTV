@@ -1,0 +1,103 @@
+name: Release Policy
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.release.tag_name }}
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+      - uses: gradle/actions/setup-gradle@v6
+      - name: Require an empty Release body
+        env:
+          RELEASE_BODY: ${{ github.event.release.body }}
+        run: test -z "$RELEASE_BODY"
+      - name: Verify public source boundary and tag
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: |
+          ./scripts/verify-public-tree.sh
+          ./scripts/verify-source-version.sh "$RELEASE_TAG"
+      - name: Test, lint and build the tagged client
+        run: ./gradlew --no-daemon testDebugUnitTest lintDebug assembleDebug
+      - name: Download published assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: gh release download "$RELEASE_TAG" --dir release-assets
+      - name: Verify signed Release assets
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: node scripts/verify-release.mjs --tag "$RELEASE_TAG" --dir release-assets
+
+  quarantine:
+    if: ${{ always() && needs.validate.result != 'success' }}
+    needs: validate
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Return an invalid Release to draft state
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_ID: ${{ github.event.release.id }}
+          REPOSITORY: ${{ github.repository }}
+        run: gh api --method PATCH "repos/$REPOSITORY/releases/$RELEASE_ID" -F draft=true
+
+  retain-five:
+    if: ${{ needs.validate.result == 'success' }}
+    needs: validate
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Delete official releases older than the latest five
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const releases = await github.paginate(
+              github.rest.repos.listReleases,
+              { owner, repo, per_page: 100 }
+            );
+            const official = releases
+              .filter((release) => !release.draft && !release.prerelease)
+              .sort((left, right) => Date.parse(
+                right.published_at ?? right.created_at
+              ) - Date.parse(left.published_at ?? left.created_at));
+
+            for (const release of official.slice(5)) {
+              core.info(`Deleting ${release.tag_name} (${release.id})`);
+              await github.rest.repos.deleteRelease({
+                owner,
+                repo,
+                release_id: release.id,
+              });
+              try {
+                await github.rest.git.deleteRef({
+                  owner,
+                  repo,
+                  ref: `tags/${release.tag_name}`,
+                });
+              } catch (error) {
+                if (error.status !== 404 && error.status !== 422) throw error;
+                core.warning(`Tag ${release.tag_name} was already absent`);
+              }
+            }
+
+            core.info(`Kept ${Math.min(official.length, 5)} official release(s)`);
