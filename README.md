@@ -50,10 +50,9 @@ system version, region, and remote-control experience.
 
 ### Open-source license
 
-The Aptelly Android client is planned for publication under the **Apache License
-2.0**. This repository currently distributes official binaries and does not yet
-contain the client source or a source-code license. The source release will include
-the license, third-party notices, and separate trademark terms.
+The Aptelly Android client is released under the **Apache License 2.0**. Third-party
+components remain subject to their respective licenses. The license does not grant
+rights to the Aptelly name, logo, or trademarks. See [LICENSE](LICENSE).
 
 Third-party services, subscriptions, accounts, region availability, DRM, and
 playback rights remain controlled by their respective providers. Aptelly does not
@@ -91,9 +90,8 @@ Aptelly（适视）是面向 Android TV 的电视助手，它能帮您找到与�
 
 ### 开源协议
 
-Aptelly Android 客户端计划采用 **Apache License 2.0** 发布。当前仓库仅发布正式安装包，
-尚未包含客户端源码或源码许可证。正式发布源码时会同时提供许可证、第三方组件声明和独立的
-商标使用条款。
+Aptelly Android 客户端采用 **Apache License 2.0** 开源协议发布。第三方组件继续适用其
+各自的许可证；该协议不授予 Aptelly 名称、Logo 或商标的使用权。详见 [LICENSE](LICENSE)。
 
 第三方服务的账号、订阅、地区可用性、DRM 和播放权益均由对应服务商决定。Aptelly 不提供
 第三方账号、观看权益或 VPN 配置。
