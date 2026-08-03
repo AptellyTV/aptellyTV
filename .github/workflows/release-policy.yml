@@ -39,11 +39,30 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ github.event.release.tag_name }}
-        run: gh release download "$RELEASE_TAG" --dir release-assets
+        run: |
+          gh release download "$RELEASE_TAG" --dir release-assets
+          previous_tag="$(gh release list \
+            --exclude-drafts \
+            --exclude-pre-releases \
+            --json tagName \
+            --jq ".[] | select(.tagName != \"$RELEASE_TAG\") | .tagName" \
+            | head -n 1)"
+          if [[ -n "$previous_tag" ]]; then
+            mkdir previous-assets
+            gh release download "$previous_tag" \
+              --pattern '*-release.json' \
+              --dir previous-assets
+            echo "HAS_PREVIOUS_RELEASE=true" >> "$GITHUB_ENV"
+          fi
       - name: Verify signed Release assets
         env:
           RELEASE_TAG: ${{ github.event.release.tag_name }}
-        run: node scripts/verify-release.mjs --tag "$RELEASE_TAG" --dir release-assets
+        run: |
+          args=(--tag "$RELEASE_TAG" --dir release-assets)
+          if [[ "${HAS_PREVIOUS_RELEASE:-false}" == "true" ]]; then
+            args+=(--previous-dir previous-assets)
+          fi
+          node scripts/verify-release.mjs "${args[@]}"
 
   quarantine:
     if: ${{ always() && needs.validate.result != 'success' }}

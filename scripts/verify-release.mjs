@@ -10,6 +10,7 @@ for (let index = 2; index < process.argv.length; index += 2) {
 }
 const tag = args.get("--tag");
 const directory = args.get("--dir");
+const previousDirectory = args.get("--previous-dir");
 if (!tag || !directory) {
   throw new Error("Usage: verify-release.mjs --tag v<version> --dir <assets-directory>");
 }
@@ -86,6 +87,26 @@ const required = {
 for (const [key, value] of Object.entries(required)) {
   if (payload[key] !== value) {
     throw new Error(`Signed payload field ${key} does not match the release`);
+  }
+}
+
+if (previousDirectory) {
+  const previousEnvelopeNames = (await readdir(previousDirectory))
+    .filter((name) => name.endsWith("-release.json"));
+  if (previousEnvelopeNames.length !== 1) {
+    throw new Error("Previous release must provide exactly one signed JSON envelope");
+  }
+  const previousEnvelope = JSON.parse(
+    await readFile(resolve(previousDirectory, previousEnvelopeNames[0]), "utf8")
+  );
+  const previousPayload = JSON.parse(
+    Buffer.from(previousEnvelope.payload, "base64").toString("utf8")
+  );
+  if (!Number.isInteger(previousPayload.versionCode) ||
+      versionCode <= previousPayload.versionCode) {
+    throw new Error(
+      `versionCode ${versionCode} must be greater than previous ${previousPayload.versionCode}`
+    );
   }
 }
 
