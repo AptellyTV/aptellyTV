@@ -30,8 +30,6 @@ system version, region, and remote-control experience.
   browsers, and network utilities.
 - Identifies whether an app is suitable, unavailable, or still awaiting a verified
   TV build for the current device.
-- Selects a usable TV installation path and never presents a web page as a completed
-  app installation.
 - Verifies APK package name, publisher certificate, version, SHA-256, Android API,
   CPU architecture, and TV launcher support before or after installation.
 - Installs, opens, updates, and removes TV apps from one remote-friendly interface.
@@ -49,15 +47,13 @@ system version, region, and remote-control experience.
 - Verify the APK against the `.sha256` file included in the same release.
 - The universal APK includes Clash Meta for ARMv7, ARM64, x86, and x86_64, so the
   download is larger than a single-architecture build.
-- Only the five most recent official releases are retained.
 
-### Project model
+### Open-source license
 
-Aptelly follows **Open Client, Managed Matching Platform**: the auditable Android
-client is being prepared for Apache-2.0 publication, while production matching,
-compatibility data, operational safeguards, signing keys, and production
-configuration remain privately managed. This repository is currently the official
-binary release channel.
+The Aptelly Android client is planned for publication under the **Apache License
+2.0**. This repository currently distributes official binaries and does not yet
+contain the client source or a source-code license. The source release will include
+the license, third-party notices, and separate trademark terms.
 
 Third-party services, subscriptions, accounts, region availability, DRM, and
 playback rights remain controlled by their respective providers. Aptelly does not
@@ -77,7 +73,6 @@ Aptelly（适视）是面向 Android TV 的电视助手，它能帮您找到与�
 
 - 汇集全球及中国主流电视服务、TV 应用商店、媒体工具、浏览器和网络工具。
 - 明确显示应用适合当前电视、当前不可用，或仍在等待已验证的 TV 版本。
-- 为当前电视选择可用安装路径，不把网页跳转伪装成已经完成的应用安装。
 - 在安装前后核验 APK 包名、发布者证书、版本、SHA-256、Android API、CPU 架构及
   电视启动入口。
 - 在适配遥控器的统一界面中安装、打开、更新和删除电视应用。
@@ -93,13 +88,12 @@ Aptelly（适视）是面向 Android TV 的电视助手，它能帮您找到与�
 - 安装前请使用同一 Release 中的 `.sha256` 文件核对 APK。
 - 通用 APK 内含适配 ARMv7、ARM64、x86 和 x86_64 的 Clash Meta，因此体积大于单一
   架构安装包。
-- 发布仓库只保留最近 5 个正式版本。
 
-### 项目模式
+### 开源协议
 
-Aptelly 采用 **客户端开放、匹配平台托管运营** 模式：可审计 Android 客户端正在准备以
-Apache-2.0 许可证发布；生产匹配服务、兼容性数据、运营安全措施、签名密钥和生产配置保持
-私有。本仓库当前仅作为官方二进制发布渠道。
+Aptelly Android 客户端计划采用 **Apache License 2.0** 发布。当前仓库仅发布正式安装包，
+尚未包含客户端源码或源码许可证。正式发布源码时会同时提供许可证、第三方组件声明和独立的
+商标使用条款。
 
 第三方服务的账号、订阅、地区可用性、DRM 和播放权益均由对应服务商决定。Aptelly 不提供
 第三方账号、观看权益或 VPN 配置。
