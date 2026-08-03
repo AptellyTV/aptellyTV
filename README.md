@@ -6,7 +6,7 @@
 
 **The right apps for your TV.**
 
-**适视 · 为你的电视，匹配真正合适的应用**
+**为你的电视匹配全球最热门的应用**
 
 [English](#english) · [简体中文](#简体中文) · [Source](app/src/main) · [Download](https://github.com/AptellyTV/aptellyTV/releases/latest)
 
