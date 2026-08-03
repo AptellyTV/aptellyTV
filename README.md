@@ -71,8 +71,7 @@ provide service accounts, viewing rights, or VPN configurations.
 
 ### 关于 Aptelly（适视）
 
-Aptelly（适视）是面向 Android TV 的电视应用发现、安装与管理助手。它帮助每台电视根据
-设备能力、系统版本、所在地区和遥控器体验，找到真正适合的应用。
+Aptelly（适视）是面向 Android TV 的电视助手，它能帮您找到与您电视相适配的全球热门电视应用。
 
 ### 项目能力
 
