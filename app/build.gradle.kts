@@ -99,8 +99,8 @@ android {
         applicationId = "app.aptelly.tv"
         minSdk = 26
         targetSdk = 35
-        versionCode = 48
-        versionName = "0.12.25"
+        versionCode = 49
+        versionName = "0.12.26"
         manifestPlaceholders["usesCleartextTraffic"] = allowCleartextTest.toString()
 
         buildConfigField("boolean", "FORCE_HYPER_OS", "false")
