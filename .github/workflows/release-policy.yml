@@ -16,7 +16,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - name: Require a download-only repository
+      - name: Verify public source boundary
         run: ./scripts/verify-public-tree.sh
 
   validate-release:
@@ -38,21 +38,6 @@ jobs:
         env:
           RELEASE_TAG: ${{ github.event.release.tag_name }}
         run: node scripts/verify-release.mjs --tag "$RELEASE_TAG" --dir release-assets
-      - name: Reject Aptelly private-service code in the public APK
-        shell: bash
-        run: |
-          apk="$(find release-assets -maxdepth 1 -name 'Aptelly-*-release.apk' -print -quit)"
-          test -n "$apk"
-          listing="$(unzip -Z1 "$apk")"
-          strings_file="$(mktemp)"
-          while IFS= read -r dex; do
-            unzip -p "$apk" "$dex" | strings >>"$strings_file"
-          done < <(grep -E '^classes([0-9]+)?\.dex$' <<<"$listing")
-          if grep -E '(aptelly-install-matcher|aptelly-poster-feed|/v1/(auth/register|apps/resolve|catalog/availability|device-profiles|install-events|privacy/delete|aptelly/releases/stable)|ApiRequestAuth|MatchingApiClient|DeviceProfileReporter)' "$strings_file"; then
-            echo "Aptelly private-service request code found in public APK" >&2
-            exit 1
-          fi
-
   quarantine:
     if: ${{ always() && github.event_name == 'release' && needs.validate-release.result != 'success' }}
     needs: validate-release

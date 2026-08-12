@@ -1,0 +1,1 @@
+-keep,allowoptimization,allowshrinking class app.aptelly.tv.** { *; }
