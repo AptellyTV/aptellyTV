@@ -95,7 +95,7 @@ public final class PosterFeedRepository {
         );
         return new PosterScene(
                 category,
-                "APTELLY · EDITORIAL",
+                context.getString(R.string.editorial_eyebrow),
                 fallbackTitle,
                 fallbackSummary,
                 "",
@@ -205,7 +205,7 @@ public final class PosterFeedRepository {
                         category,
                         item.optString(
                                 "eyebrow",
-                                "APTELLY · TRENDING"
+                                context.getString(R.string.trending_eyebrow)
                         ),
                         item.optString("title", ""),
                         item.optString("summary", ""),

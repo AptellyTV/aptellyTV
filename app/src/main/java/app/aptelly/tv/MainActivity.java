@@ -301,7 +301,7 @@ public final class MainActivity extends Activity {
 
         LinearLayout identity = new LinearLayout(this);
         identity.setOrientation(LinearLayout.VERTICAL);
-        TextView brand = text("APTELLY", 13, Color.WHITE, true);
+        TextView brand = text(getString(R.string.brand_intro_name), 13, Color.WHITE, true);
         brand.setLetterSpacing(0.11f);
         identity.addView(brand);
         TextView mode = text(

@@ -10,7 +10,10 @@
     <string name="globoplay_shortcut_label" translatable="false">Globoplay</string>
     <string name="jiohotstar_shortcut_label" translatable="false">JioHotstar</string>
     <string name="discovery_shortcut_label" translatable="false">discovery+</string>
-    <string name="app_name">Aptelly TV</string>
+    <string name="app_name">Aptelly</string>
+    <string name="brand_intro_name">Aptelly</string>
+    <string name="editorial_eyebrow">Aptelly · Editorial</string>
+    <string name="trending_eyebrow">Aptelly · Trending</string>
     <string name="home">Home</string>
     <string name="apps">Apps</string>
     <string name="privacy">Network privacy</string>
