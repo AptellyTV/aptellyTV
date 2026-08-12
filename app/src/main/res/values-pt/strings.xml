@@ -1,6 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Aptelly TV</string>
+    <string name="app_name">Aptelly</string>
+    <string name="brand_intro_name">Aptelly</string>
+    <string name="editorial_eyebrow">Aptelly · Editorial</string>
+    <string name="trending_eyebrow">Aptelly · Em alta</string>
     <string name="home">Início</string>
     <string name="apps">Aplicativos</string>
     <string name="privacy">Privacidade de rede</string>

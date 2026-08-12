@@ -1,6 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">適視</string>
+    <string name="brand_intro_name">適視（Aptelly）</string>
+    <string name="editorial_eyebrow">適視 · 精選</string>
+    <string name="trending_eyebrow">適視 · 熱門</string>
     <string name="home">首頁</string>
     <string name="apps">應用程式</string>
     <string name="privacy">網路隱私</string>
