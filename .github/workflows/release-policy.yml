@@ -1,0 +1,68 @@
+name: Release Policy
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  public-boundary:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Require a download-only repository
+        run: ./scripts/verify-public-tree.sh
+
+  validate-release:
+    if: github.event_name == 'release'
+    needs: public-boundary
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+      - name: Download the exact published assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: gh release download "$RELEASE_TAG" --dir release-assets
+      - name: Verify signed metadata, hash, URL and asset boundary
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: node scripts/verify-release.mjs --tag "$RELEASE_TAG" --dir release-assets
+      - name: Reject Aptelly private-service code in the public APK
+        shell: bash
+        run: |
+          apk="$(find release-assets -maxdepth 1 -name 'Aptelly-*-release.apk' -print -quit)"
+          test -n "$apk"
+          listing="$(unzip -Z1 "$apk")"
+          strings_file="$(mktemp)"
+          while IFS= read -r dex; do
+            unzip -p "$apk" "$dex" | strings >>"$strings_file"
+          done < <(grep -E '^classes([0-9]+)?\.dex$' <<<"$listing")
+          if grep -E '(aptelly-install-matcher|aptelly-poster-feed|/v1/(auth/register|apps/resolve|catalog/availability|device-profiles|install-events|privacy/delete|aptelly/releases/stable)|ApiRequestAuth|MatchingApiClient|DeviceProfileReporter)' "$strings_file"; then
+            echo "Aptelly private-service request code found in public APK" >&2
+            exit 1
+          fi
+
+  quarantine:
+    if: ${{ always() && github.event_name == 'release' && needs.validate-release.result != 'success' }}
+    needs: validate-release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Return an invalid Release to draft state
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_ID: ${{ github.event.release.id }}
+          REPOSITORY: ${{ github.repository }}
+        run: gh api --method PATCH "repos/$REPOSITORY/releases/$RELEASE_ID" -F draft=true
