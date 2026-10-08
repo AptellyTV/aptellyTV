@@ -25,6 +25,8 @@ public final class InstallStatusReceiver extends BroadcastReceiver {
                 PackageInstaller.EXTRA_STATUS,
                 PackageInstaller.STATUS_FAILURE
         );
+        PendingInstallStore store = new PendingInstallStore(context);
+        int sessionId = intent.getIntExtra(PackageInstaller.EXTRA_SESSION_ID, -1);
         if (status == PackageInstaller.STATUS_PENDING_USER_ACTION) {
             Intent confirmation;
             if (Build.VERSION.SDK_INT >= 33) {
@@ -34,11 +36,15 @@ public final class InstallStatusReceiver extends BroadcastReceiver {
                 confirmation = intent.getParcelableExtra(Intent.EXTRA_INTENT);
             }
             if (confirmation == null) {
+                store.recordResult(requestId, sessionId, PendingInstallStore.State.FAILED,
+                        "Installer confirmation unavailable");
                 InstallSessionRegistry.failure(requestId, "Installer confirmation unavailable");
                 return;
             }
             confirmation.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
             if (!startConfirmation(context, confirmation)) {
+                store.recordResult(requestId, sessionId, PendingInstallStore.State.FAILED,
+                        "Installer confirmation activity unavailable");
                 InstallSessionRegistry.failure(
                         requestId,
                         "Installer confirmation activity unavailable"
@@ -47,12 +53,14 @@ public final class InstallStatusReceiver extends BroadcastReceiver {
             return;
         }
         if (status == PackageInstaller.STATUS_SUCCESS) {
+            store.recordResult(requestId, sessionId, PendingInstallStore.State.SUCCEEDED, "");
             InstallSessionRegistry.success(requestId);
             PrimeVideoShortcutController.sync(context);
             TvAppShortcutController.sync(context);
             return;
         }
         String message = intent.getStringExtra(PackageInstaller.EXTRA_STATUS_MESSAGE);
+        store.recordResult(requestId, sessionId, PendingInstallStore.State.FAILED, statusName(status));
         InstallSessionRegistry.failure(
                 requestId,
                 statusName(status)

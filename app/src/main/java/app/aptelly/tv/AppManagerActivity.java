@@ -38,12 +38,14 @@ import app.aptelly.tv.device.DeviceProfile;
 import app.aptelly.tv.device.NetworkPreflight;
 import app.aptelly.tv.device.NetworkStatus;
 import app.aptelly.tv.install.PackageResolver;
+import app.aptelly.tv.device.StaticDeviceProfile;
 import app.aptelly.tv.install.PendingInstallStore;
 import app.aptelly.tv.install.SecurePackageInstaller;
 import app.aptelly.tv.install.StoreInstallRouter;
+import app.aptelly.tv.install.InstallGuidance;
+import app.aptelly.tv.install.InstallTarget;
 import app.aptelly.tv.ui.AmbientBackgroundView;
 import app.aptelly.tv.ui.TvMessageDialog;
-import app.aptelly.tv.device.StaticDeviceProfile;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -60,7 +62,6 @@ public final class AppManagerActivity extends Activity {
     private DeviceProfile deviceProfile;
     private String focusPackage;
     private boolean focusRequested;
-    private boolean availabilityRequested;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -82,9 +83,9 @@ public final class AppManagerActivity extends Activity {
         deviceProfile = deviceProfile == null
                 ? DeviceProfile.detect(this)
                 : deviceProfile.refreshDynamic(this);
+        CatalogAvailability.configure(deviceProfile);
         verifyPendingInstall();
         rebuild();
-        availabilityRequested = true;
     }
 
     @Override
@@ -231,6 +232,12 @@ public final class AppManagerActivity extends Activity {
         }
     }
 
+    private String catalogDescription(CatalogApp app) {
+        String guidance = InstallGuidance.catalogMessage(
+                this, CatalogAvailability.status(app.packageName));
+        return guidance.isEmpty() ? getString(app.descriptionRes) : guidance;
+    }
+
     private View buildAppRow(CatalogApp app) {
         InstalledAppResolver.Resolution resolution =
                 InstalledAppResolver.resolve(this, app.packageName);
@@ -291,7 +298,7 @@ public final class AppManagerActivity extends Activity {
         copy.addView(name);
 
         TextView description = text(
-                getString(app.descriptionRes),
+                catalogDescription(app),
                 13,
                 Color.argb(210, 255, 255, 255),
                 false
@@ -448,11 +455,7 @@ public final class AppManagerActivity extends Activity {
         }
 
         if (isUnavailableOnCurrentTv(app)) {
-            Toast.makeText(
-                    this,
-                    R.string.catalog_unavailable_on_this_tv,
-                    Toast.LENGTH_LONG
-            ).show();
+            TvMessageDialog.showInstallError(this, catalogDescription(app));
             return;
         }
 
@@ -466,7 +469,6 @@ public final class AppManagerActivity extends Activity {
         }
 
         TvMessageDialog.confirmInstall(this, app.name, () -> {
-            rememberPendingInstall(app.packageName);
             installDirect(app, false);
         });
     }
@@ -474,9 +476,6 @@ public final class AppManagerActivity extends Activity {
     private void installDirect(CatalogApp app, boolean allowUpdate) {
         if (blockForMissingGoogleRuntime(app)) {
             return;
-        }
-        if (!isInstalled(app.packageName)) {
-            rememberPendingInstall(app.packageName);
         }
         SecurePackageInstaller.Listener listener = new SecurePackageInstaller.Listener() {
             @Override
@@ -508,15 +507,6 @@ public final class AppManagerActivity extends Activity {
         return true;
     }
 
-    private void rememberPendingInstall(String packageName) {
-        new PendingInstallStore(this).save(
-                packageName,
-                "",
-                PendingInstallStore.State.REQUESTED,
-                ""
-        );
-    }
-
     private void verifyPendingInstall() {
         PendingInstallStore store = new PendingInstallStore(this);
         PendingInstallStore.Task task = store.read();
@@ -527,19 +517,26 @@ public final class AppManagerActivity extends Activity {
             clearPendingInstall();
             return;
         }
-        String installedPackage =
-                InstalledAppResolver.installedPackage(this, task.packageName);
-        if (installedPackage == null) {
-            if (task.state == PendingInstallStore.State.FAILED
-                    && task.message != null
-                    && !task.message.isEmpty()) {
-                TvMessageDialog.showInstallError(this, task.message);
+        if (task.state == PendingInstallStore.State.FAILED) {
+            TvMessageDialog.showInstallError(this, getString(R.string.install_not_completed));
+            clearPendingInstall();
+            return;
+        }
+        if (!app.aptelly.tv.install.InstalledTargetVerifier.matches(this, task.target)) {
+            // An old installation or an unversioned legacy task never proves this update succeeded.
+            if (task.state == PendingInstallStore.State.SUCCEEDED) {
+                TvMessageDialog.showInstallError(this, getString(R.string.install_target_not_verified));
+                clearPendingInstall();
+            } else if (task.state == PendingInstallStore.State.WAITING_CONFIRMATION
+                    && task.sessionId >= 0
+                    && getPackageManager().getPackageInstaller().getSessionInfo(task.sessionId) == null) {
+                TvMessageDialog.showInstallError(this, getString(R.string.install_not_completed));
                 clearPendingInstall();
             }
             return;
         }
 
-        Intent launcher = InstalledAppResolver.launchIntent(this, task.packageName);
+        Intent launcher = InstalledAppResolver.launchIntent(this, task.target.packageName);
         int message = launcher != null
                 ? R.string.install_verified_tv
                 : R.string.install_verified_no_entry;
@@ -593,13 +590,9 @@ public final class AppManagerActivity extends Activity {
                 PackageInfo current =
                         getPackageManager().getPackageInfo(installedPackage, 0);
                 app.aptelly.tv.install.InstallPlan latest =
-                        PackageResolver.resolvePlan(
-                                app,
-                                StaticDeviceProfile.collect(this).hardwareProfileId
-                        );
-                boolean newer = app.source == CatalogApp.Source.FDROID_OPENVPN
-                        ? latest.versionCode > installedVersionCode(current)
-                        : compareVersions(latest.versionName, current.versionName) > 0;
+                        PackageResolver.resolvePlan(app, StaticDeviceProfile.collect(this).hardwareProfileId);
+                boolean newer = latest.versionCode == 0 || InstallTarget.requiresInstall(
+                        installedPackage, installedVersionCode(current), latest.packageName, latest.versionCode);
                 if (newer) {
                     runOnUiThread(() -> installDirect(app, true));
                 } else {
@@ -622,7 +615,8 @@ public final class AppManagerActivity extends Activity {
                     message = getString(R.string.up_to_date, app.name);
                 } else if (exception instanceof
                         app.aptelly.tv.install.NoMatchingArtifactException) {
-                    message = getString(R.string.install_source_unverified);
+                    message = InstallGuidance.message(this,
+                            ((app.aptelly.tv.install.NoMatchingArtifactException) exception).reasonCode);
                 } else if (!network.canDownload()) {
                     message = getString(R.string.network_not_validated);
                 } else {
@@ -680,31 +674,6 @@ public final class AppManagerActivity extends Activity {
         return android.os.Build.VERSION.SDK_INT >= 28
                 ? info.getLongVersionCode()
                 : info.versionCode;
-    }
-
-    private int compareVersions(String left, String right) {
-        String[] leftParts = left == null ? new String[0] : left.split("[^0-9]+");
-        String[] rightParts = right == null ? new String[0] : right.split("[^0-9]+");
-        int count = Math.max(leftParts.length, rightParts.length);
-        for (int index = 0; index < count; index++) {
-            long leftValue = numberAt(leftParts, index);
-            long rightValue = numberAt(rightParts, index);
-            if (leftValue != rightValue) {
-                return Long.compare(leftValue, rightValue);
-            }
-        }
-        return 0;
-    }
-
-    private long numberAt(String[] values, int index) {
-        if (index >= values.length || values[index].isEmpty()) {
-            return 0;
-        }
-        try {
-            return Long.parseLong(values[index]);
-        } catch (NumberFormatException ignored) {
-            return 0;
-        }
     }
 
     private LinearLayout.LayoutParams rowParams() {

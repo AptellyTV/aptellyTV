@@ -51,7 +51,7 @@ public final class SecurePackageInstaller {
     private final Activity activity;
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
     private final PendingInstallStore pendingInstallStore;
-    private final Set<String> inFlightPackages = ConcurrentHashMap.newKeySet();
+    private static final Set<String> inFlightPackages = ConcurrentHashMap.newKeySet();
     private final Map<String, InstallPlan> inFlightPlans = new ConcurrentHashMap<>();
     private final Map<String, List<File>> inFlightFiles = new ConcurrentHashMap<>();
     private Runnable pendingPermissionAction;
@@ -90,6 +90,16 @@ public final class SecurePackageInstaller {
         reconcileCompletedInstalls();
         if (!app.supportsOneClickInstall()) {
             listener.onError(activity.getString(R.string.install_source_unverified));
+            return;
+        }
+        PendingInstallStore.Task existing = pendingInstallStore.read();
+        if (!inFlightPackages.isEmpty()) {
+            listener.onStatus(activity.getString(R.string.install_in_progress, app.name));
+            return;
+        }
+        if (existing != null && existing.state == PendingInstallStore.State.WAITING_CONFIRMATION
+                && existing.sessionId >= 0) {
+            listener.onError(activity.getString(R.string.install_pending_confirmation));
             return;
         }
         pendingInstallStore.save(
@@ -131,10 +141,7 @@ public final class SecurePackageInstaller {
         executor.execute(() -> {
             List<File> files = new ArrayList<>();
             try {
-                InstallPlan plan = PackageResolver.resolvePlan(
-                        app,
-                        StaticDeviceProfile.collect(activity).hardwareProfileId
-                );
+                InstallPlan plan = PackageResolver.resolvePlan(app, StaticDeviceProfile.collect(activity).hardwareProfileId);
                 for (ArtifactFile artifact : plan.artifacts) {
                     files.add(download(
                             app.packageName + "-" + files.size(),
@@ -144,7 +151,8 @@ public final class SecurePackageInstaller {
                     ));
                 }
                 postStatus(listener, activity.getString(R.string.verifying));
-                ApkCompatibilityInspector.requireCompatible(activity, plan, files);
+                InstallPlan inspectedPlan = InspectedInstallPlan.read(activity, plan, files);
+                ApkCompatibilityInspector.requireCompatible(activity, inspectedPlan, files);
                 if (!verifyArtifacts(files, plan)) {
                     deleteAll(files);
                     inFlightPackages.remove(app.packageName);
@@ -158,7 +166,7 @@ public final class SecurePackageInstaller {
                     return;
                 }
                 activity.runOnUiThread(() -> commitInstall(
-                        plan,
+                        inspectedPlan,
                         files,
                         app.packageName,
                         listener
@@ -183,10 +191,7 @@ public final class SecurePackageInstaller {
                             ));
                             return;
                         }
-                        int message = "AMAZON_VARIANT_NOT_DIRECT".equals(noMatch.reasonCode)
-                                ? R.string.amazon_variant_not_direct
-                                : R.string.install_source_unverified;
-                        listener.onError(activity.getString(message));
+                        listener.onError(InstallGuidance.message(activity, noMatch.reasonCode));
                     });
                     return;
                 }
@@ -319,7 +324,8 @@ public final class SecurePackageInstaller {
                     return;
                 }
                 File finalApk = apk;
-                InstallPlan plan = compatibilityPlan;
+                InstallPlan plan = InspectedInstallPlan.read(activity, compatibilityPlan,
+                        Collections.singletonList(finalApk));
                 activity.runOnUiThread(() -> {
                     if (isInstalled(app.packageName)) {
                         deleteQuietly(finalApk);
@@ -639,6 +645,13 @@ public final class SecurePackageInstaller {
                             if (!finishTrackedAttempt(requestPackageName, files)) {
                                 return;
                             }
+                            if (!InstalledTargetVerifier.matches(activity, InstalledTargetVerifier.target(plan))) {
+                                pendingInstallStore.save(plan.packageName, plan.appName,
+                                        PendingInstallStore.State.FAILED,
+                                        activity.getString(R.string.install_target_not_verified));
+                                postError(listener, activity.getString(R.string.install_target_not_verified));
+                                return;
+                            }
                             pendingInstallStore.clear();
                             reportResult(plan, "success", "");
                             postStatus(
@@ -703,7 +716,7 @@ public final class SecurePackageInstaller {
             String requestPackageName = entry.getKey();
             InstallPlan plan = entry.getValue();
             long installedVersion = installedVersionCode(plan.packageName);
-            if (installedVersion < plan.versionCode) {
+            if (!InstalledTargetVerifier.matches(activity, InstalledTargetVerifier.target(plan))) {
                 continue;
             }
             if (!finishTrackedAttempt(requestPackageName, null)) {
@@ -825,7 +838,7 @@ public final class SecurePackageInstaller {
             String result,
             String failureCode
     ) {
-        // Community source builds do not upload installation results.
+        // Local source does not upload installation results.
     }
 
     private void postError(Listener listener, String message) {

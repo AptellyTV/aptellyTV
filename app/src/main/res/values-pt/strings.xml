@@ -116,7 +116,7 @@
     <string name="desc_wireguard">Cliente VPN leve. Use sua própria configuração confiável.</string>
     <string name="desc_openvpn">Cliente VPN aberto. Use sua própria configuração confiável.</string>
     <string name="app_stores">Lojas de aplicações</string>
-    <string name="desc_aurora_store">Incluída para instalação offline. Instale uma vez para adicionar uma fonte de apps para TV sem exigir o Google Play.</string>
+    <string name="desc_aurora_store">Download online. Não exige Google Play, mas a TV deve permitir que a Aurora instale apps.</string>
     <string name="desc_google_play_store">Loja oficial para dispositivos Google TV e Android TV certificados; indisponível sem serviços Google licenciados.</string>
     <string name="desc_amazon_appstore">Loja oficial integrada aos dispositivos Fire TV; indisponível em firmwares Android TV comuns.</string>
     <string name="desc_aptoide_tv_store">Loja alternativa global para Android TV e aparelhos de TV; aparece indisponível até existir uma versão de TV verificada.</string>
@@ -309,4 +309,19 @@
     <string name="aptelly_update_downloading">Baixando e verificando a atualização…</string>
     <string name="aptelly_update_ready">Atualização verificada. Confirme a instalação no Android.</string>
     <string name="aptelly_update_failed">Não foi possível verificar ou baixar a atualização.</string>
+    <string name="match_security_blocked">Este pacote não passou pela revisão de segurança. Use uma loja oficial ou aguarde uma versão verificada.</string>
+    <string name="match_signer_blocked">A assinatura da atualização é diferente ou não pode ser confirmada. Atualize pela loja original.</string>
+    <string name="match_qualification_expired">A verificação desta versão expirou. Use uma loja oficial enquanto esta TV é verificada novamente.</string>
+    <string name="match_google_required">Esta versão exige serviços do Google ou certificação Play. Use uma TV compatível ou a loja oficial.</string>
+    <string name="match_amazon_required">Esta versão exige serviços da Amazon. Use uma Fire TV compatível ou aguarde uma versão verificada.</string>
+    <string name="match_region_required">Este app não está disponível na região da rede. Consulte as regiões atendidas pelo serviço.</string>
+    <string name="match_function_not_qualified">O login, controle remoto ou reprodução não passaram na verificação desta TV. Aguarde uma versão verificada.</string>
+    <string name="match_retired">Esta versão não tem mais suporte. Use uma versão oficial atual.</string>
+    <string name="match_package_unavailable">O pacote completo verificado não está disponível. Tente uma loja oficial ou volte mais tarde.</string>
+    <string name="match_device_unsupported">Esta versão não suporta o sistema, hardware ou ambiente da TV. Aguarde uma versão compatível verificada.</string>
+    <string name="match_no_source">Não há um download verificado. Tente uma loja oficial ou volte mais tarde.</string>
+    <string name="match_store_permission_limited">A loja abre, mas esta TV pode impedir a instalação de apps. Instale pela Aptelly ou pela loja oficial da TV.</string>
+    <string name="match_account_required">Use sua própria conta do serviço. Pode exigir assinatura e uma região atendida.</string>
+    <string name="install_target_not_verified">Não foi possível verificar a versão ou assinatura instalada. A instalação está incompleta; tente novamente.</string>
+    <string name="install_pending_confirmation">Conclua ou cancele a instalação atual antes de iniciar outra.</string>
 </resources>

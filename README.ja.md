@@ -110,6 +110,8 @@ Aptelly は **Android TV 8.0（API 26）以降**に対応しています。標�
 <summary><strong>Google Play のないテレビでも使えますか？</strong></summary>
 <br>
 Aptelly 自体はインストールできますが、各第三者アプリの利用可否はテレビの環境によって異なります。必要に応じて、メーカーのストア、Aurora Store、Aptoide TV、公式プロジェクトの入手先を案内します。
+
+Aurora Store のダウンロードにはインターネット接続が必要です。Aurora から他のアプリをインストールするにはテレビの許可も必要で、一部のテレビでは制限されています。
 </details>
 
 <details>

@@ -110,6 +110,8 @@ Aptelly 支持 **Android TV 8.0（API 26）及以上版本**。是否把它设�
 <summary><strong>没有 Google Play 的电视可以用吗？</strong></summary>
 <br>
 可以安装 Aptelly，但每个第三方应用能否使用仍取决于电视环境。目录同时整理了厂商商店、Aurora Store、Aptoide TV，以及适用时由项目官方提供的入口。
+
+Aurora Store 需要联网下载。通过 Aurora 安装其他应用还需要电视授予安装权限，部分电视会限制该权限。
 </details>
 
 <details>

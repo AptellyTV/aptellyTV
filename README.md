@@ -110,6 +110,8 @@ No. Aptelly only organizes entry points to third-party TV apps. Content, account
 <summary><strong>Can I use Aptelly on a TV without Google Play?</strong></summary>
 <br>
 You can install Aptelly, but each third-party app still depends on the capabilities of your television. The catalog includes manufacturer stores, Aurora Store, Aptoide TV and official project sources where appropriate.
+
+Aurora Store requires an online download. Installing other apps through Aurora also requires permission from your TV; some televisions restrict this permission.
 </details>
 
 <details>

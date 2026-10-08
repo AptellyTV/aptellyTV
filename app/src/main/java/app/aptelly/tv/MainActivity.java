@@ -47,6 +47,7 @@ import app.aptelly.tv.content.PosterScene;
 import app.aptelly.tv.device.DeviceProfile;
 import app.aptelly.tv.device.HomeController;
 import app.aptelly.tv.install.SecurePackageInstaller;
+import app.aptelly.tv.install.InstallGuidance;
 import app.aptelly.tv.install.StoreInstallRouter;
 import app.aptelly.tv.ui.CinematicBackdropView;
 import app.aptelly.tv.ui.TvCardView;
@@ -199,6 +200,7 @@ public final class MainActivity extends Activity {
             deviceProfile = deviceProfile.refreshDynamic(this);
         }
         packageInstaller.onHostResume();
+        CatalogAvailability.configure(deviceProfile);
         hideSystemBars();
         if (!hasResumed) {
             hasResumed = true;
@@ -723,7 +725,7 @@ public final class MainActivity extends Activity {
                 this,
                 iconFor(app),
                 app.name,
-                getString(app.descriptionRes),
+                catalogDescription(app),
                 badge,
                 app.startColor,
                 app.endColor
@@ -947,7 +949,7 @@ public final class MainActivity extends Activity {
             setHeroCopy(
                     getString(R.string.app_detail_eyebrow),
                     catalogApp.name,
-                    getString(R.string.app_detail_function, getString(catalogApp.descriptionRes)),
+                    getString(R.string.app_detail_function, catalogDescription(catalogApp)),
                     getString(R.string.app_detail_feature, feature),
                     getString(R.string.app_detail_advantage, advantage),
                     action,
@@ -1039,11 +1041,7 @@ public final class MainActivity extends Activity {
         }
 
         if (isUnavailableOnCurrentTv(app)) {
-            Toast.makeText(
-                    this,
-                    R.string.catalog_unavailable_on_this_tv,
-                    Toast.LENGTH_LONG
-            ).show();
+            TvMessageDialog.showInstallError(this, catalogDescription(app));
             return;
         }
 
@@ -1362,6 +1360,11 @@ public final class MainActivity extends Activity {
 
     private boolean isInstalled(String packageName) {
         return InstalledAppResolver.installedPackage(this, packageName) != null;
+    }
+
+    private String catalogDescription(CatalogApp app) {
+        String guidance = InstallGuidance.catalogMessage(this, CatalogAvailability.status(app.packageName));
+        return guidance.isEmpty() ? getString(app.descriptionRes) : guidance;
     }
 
     private boolean isUnavailableOnCurrentTv(CatalogApp app) {

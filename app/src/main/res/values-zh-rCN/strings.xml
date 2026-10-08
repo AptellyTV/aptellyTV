@@ -150,7 +150,7 @@
     <string name="desc_tailscale">在用户自己的设备和服务之间建立私有组网。</string>
     <string name="desc_wireguard">轻量 VPN 客户端，需要用户自备可信配置。</string>
     <string name="desc_openvpn">开源 VPN 客户端，需要用户自备可信配置。</string>
-    <string name="desc_aurora_store">已离线内置。安装一次即可获得适配电视的应用来源，无需预装 Google Play。</string>
+    <string name="desc_aurora_store">需联网下载，无需预装 Google Play；通过 Aurora 安装其他应用仍需电视允许其安装权限。</string>
     <string name="desc_google_play_store">Google TV 与 Android TV 认证设备的官方商店；没有授权 Google 服务的电视不可用。</string>
     <string name="desc_amazon_appstore">Fire TV 设备内置的官方应用商店；普通 Android TV 固件不可用。</string>
     <string name="desc_aptoide_tv_store">面向 Android TV 和电视盒子的全球第三方商店；取得并验证 TV 版本前显示为不可用。</string>
@@ -309,4 +309,19 @@
     <string name="aptelly_update_downloading">正在下载并验证签名更新…</string>
     <string name="aptelly_update_ready">更新验证通过，请在 Android 中确认安装。</string>
     <string name="aptelly_update_failed">无法验证或下载更新。</string>
+    <string name="match_security_blocked">此安装包未通过安全审核。请使用官方商店，或等待已验证版本。</string>
+    <string name="match_signer_blocked">已安装应用与更新包的签名不同或无法确认。请通过原安装商店更新。</string>
+    <string name="match_qualification_expired">此版本的验收资格已过期。请先使用官方商店，等待这台电视重新验收。</string>
+    <string name="match_google_required">此版本需要 Google 服务或 Play 认证。请使用受支持的电视或官方商店。</string>
+    <string name="match_amazon_required">此版本需要 Amazon 服务。请使用受支持的 Fire TV，或等待已验证兼容版。</string>
+    <string name="match_region_required">当前网络地区不受此应用支持。请查看该服务的开放地区。</string>
+    <string name="match_function_not_qualified">登录、遥控或播放尚未在这台电视通过验收。请等待已验证版本。</string>
+    <string name="match_retired">此版本已停止支持。请使用当前官方版本。</string>
+    <string name="match_package_unavailable">完整且已验证的安装包暂不可用。请尝试官方商店，或稍后重试。</string>
+    <string name="match_device_unsupported">此版本不支持电视的系统、硬件或运行环境。请等待已验证兼容版。</string>
+    <string name="match_no_source">暂无已验证下载。请尝试官方商店，或稍后重试。</string>
+    <string name="match_store_permission_limited">商店可以打开，但这台电视可能禁止它安装应用。请通过 Aptelly 或电视官方商店安装。</string>
+    <string name="match_account_required">请使用您自己的服务账号；可能需要订阅及受支持的地区。</string>
+    <string name="install_target_not_verified">无法确认安装后的版本或签名。安装尚未完成，请重试。</string>
+    <string name="install_pending_confirmation">请先完成或取消当前系统安装，再安装其他应用。</string>
 </resources>

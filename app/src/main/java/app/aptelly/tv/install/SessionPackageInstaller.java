@@ -64,6 +64,7 @@ final class SessionPackageInstaller {
                     status,
                     PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_MUTABLE
             );
+            new PendingInstallStore(context).attachSession(plan, sessionId, requestId);
             session.commit(pendingIntent.getIntentSender());
         } catch (Exception exception) {
             InstallSessionRegistry.failure(requestId, exception.getMessage());

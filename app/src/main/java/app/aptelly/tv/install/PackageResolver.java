@@ -162,7 +162,7 @@ public final class PackageResolver {
         return new InstallPlan(
                 app.name,
                 app.packageName,
-                resolved.versionCode,
+                0, // Upstream release labels are not Android versionCode. Inspect the downloaded APK.
                 resolved.versionName,
                 resolved.expectedCertificateSha256,
                 deviceProfileId,

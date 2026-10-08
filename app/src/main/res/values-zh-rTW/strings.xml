@@ -108,7 +108,7 @@
     <string name="desc_wireguard">輕量 VPN 客戶端，需要使用者自備可信設定。</string>
     <string name="desc_openvpn">開源 VPN 客戶端，需要使用者自備可信設定。</string>
     <string name="app_stores">應用商店</string>
-    <string name="desc_aurora_store">已離線內建。安裝一次即可獲得適配電視的應用程式來源，無需預裝 Google Play。</string>
+    <string name="desc_aurora_store">需連網下載，無需預裝 Google Play；透過 Aurora 安裝其他應用程式仍需電視允許其安裝權限。</string>
     <string name="desc_google_play_store">Google TV 與 Android TV 認證裝置的官方商店；沒有授權 Google 服務的電視不可用。</string>
     <string name="desc_amazon_appstore">Fire TV 裝置內建的官方應用程式商店；一般 Android TV 韌體不可用。</string>
     <string name="desc_aptoide_tv_store">面向 Android TV 與電視盒的全球第三方商店；取得並驗證 TV 版本前顯示為不可用。</string>
@@ -280,4 +280,19 @@
     <string name="aptelly_update_downloading">正在下載並驗證簽署更新…</string>
     <string name="aptelly_update_ready">更新驗證通過，請在 Android 中確認安裝。</string>
     <string name="aptelly_update_failed">無法驗證或下載更新。</string>
+    <string name="match_security_blocked">此安裝包未通過安全審核。請使用官方商店，或等待已驗證版本。</string>
+    <string name="match_signer_blocked">已安裝應用程式與更新包的簽章不同或無法確認。請透過原安裝商店更新。</string>
+    <string name="match_qualification_expired">此版本的驗收資格已過期。請先使用官方商店，等待這台電視重新驗收。</string>
+    <string name="match_google_required">此版本需要 Google 服務或 Play 認證。請使用支援的電視或官方商店。</string>
+    <string name="match_amazon_required">此版本需要 Amazon 服務。請使用支援的 Fire TV，或等待已驗證相容版。</string>
+    <string name="match_region_required">目前網路地區不受此應用程式支援。請查看該服務的開放地區。</string>
+    <string name="match_function_not_qualified">登入、遙控或播放尚未在這台電視通過驗收。請等待已驗證版本。</string>
+    <string name="match_retired">此版本已停止支援。請使用目前官方版本。</string>
+    <string name="match_package_unavailable">完整且已驗證的安裝包暫不可用。請嘗試官方商店，或稍後重試。</string>
+    <string name="match_device_unsupported">此版本不支援電視的系統、硬體或執行環境。請等待已驗證相容版。</string>
+    <string name="match_no_source">暫無已驗證下載。請嘗試官方商店，或稍後重試。</string>
+    <string name="match_store_permission_limited">商店可以開啟，但這台電視可能禁止它安裝應用程式。請透過 Aptelly 或電視官方商店安裝。</string>
+    <string name="match_account_required">請使用您自己的服務帳號；可能需要訂閱及支援的地區。</string>
+    <string name="install_target_not_verified">無法確認安裝後的版本或簽章。安裝尚未完成，請重試。</string>
+    <string name="install_pending_confirmation">請先完成或取消目前系統安裝，再安裝其他應用程式。</string>
 </resources>
