@@ -111,7 +111,7 @@ Aptelly는 **Android TV 8.0(API 26) 이상**을 지원합니다. 기본 TV 홈 �
 <br>
 Aptelly 자체는 설치할 수 있지만 각 타사 앱의 사용 가능 여부는 TV 환경에 따라 달라집니다. 필요한 경우 제조사 스토어, Aurora Store, Aptoide TV 및 공식 프로젝트 출처를 안내합니다.
 
-Aurora Store를 다운로드하려면 인터넷 연결이 필요합니다. Aurora를 통해 다른 앱을 설치하려면 TV의 설치 권한도 필요하며, 일부 TV에서는 이 권한이 제한됩니다。
+Aurora Store를 다운로드하려면 인터넷 연결이 필요합니다. Aurora를 통해 다른 앱을 설치하려면 TV의 설치 권한도 필요하며, 일부 TV에서는 이 권한이 제한됩니다.
 </details>
 
 <details>
