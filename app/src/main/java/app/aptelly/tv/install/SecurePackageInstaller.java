@@ -25,8 +25,6 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.HttpURLConnection;
-import java.net.URL;
 import java.security.MessageDigest;
 import java.util.HashSet;
 import java.util.ArrayList;
@@ -142,13 +140,17 @@ public final class SecurePackageInstaller {
             List<File> files = new ArrayList<>();
             try {
                 InstallPlan plan = PackageResolver.resolvePlan(app, StaticDeviceProfile.collect(activity).hardwareProfileId);
+                File folder = downloadFolder();
+                long[] sizes = new long[plan.artifacts.size()];
+                for (int index = 0; index < sizes.length; index++) {
+                    sizes[index] = plan.artifacts.get(index).sizeBytes;
+                }
+                DownloadBudget budget = new DownloadBudget(sizes);
+                budget.preflight(folder.getUsableSpace());
                 for (ArtifactFile artifact : plan.artifacts) {
-                    files.add(download(
-                            app.packageName + "-" + files.size(),
-                            artifact.downloadUrl,
-                            null,
-                            null
-                    ));
+                    files.add(PackageDownload.fetch(folder,
+                            app.packageName + "-" + files.size(), artifact.downloadUrl,
+                            "Aptelly/" + BuildConfig.VERSION_NAME, artifact.sizeBytes, budget));
                 }
                 postStatus(listener, activity.getString(R.string.verifying));
                 InstallPlan inspectedPlan = InspectedInstallPlan.read(activity, plan, files);
@@ -195,7 +197,9 @@ public final class SecurePackageInstaller {
                     });
                     return;
                 }
-                String failureMessage = shouldSuggestStartingClash(exception)
+                String failureMessage = exception instanceof DownloadBudget.Failure
+                        ? downloadFailure((DownloadBudget.Failure) exception)
+                        : shouldSuggestStartingClash(exception)
                         ? activity.getString(R.string.matcher_unreachable_clash_stopped)
                         : activity.getString(
                                 R.string.download_failed,
@@ -203,7 +207,7 @@ public final class SecurePackageInstaller {
                                         ? exception.getClass().getSimpleName()
                                         : exception.getMessage()
                         );
-                if (exception instanceof IOException) {
+                if (exception instanceof IOException && !(exception instanceof DownloadBudget.Failure)) {
                     activity.runOnUiThread(() -> {
                         if (StoreInstallRouter.open(activity, app)) {
                             pendingInstallStore.clear();
@@ -348,14 +352,16 @@ public final class SecurePackageInstaller {
             } catch (Exception exception) {
                 deleteQuietly(apk);
                 inFlightPackages.remove(app.packageName);
+                String message = exception instanceof DownloadBudget.Failure
+                        ? downloadFailure((DownloadBudget.Failure) exception)
+                        : activity.getString(R.string.offline_package_failed,
+                                exception.getMessage() == null
+                                        ? exception.getClass().getSimpleName() : exception.getMessage());
+                pendingInstallStore.save(app.packageName, app.name,
+                        PendingInstallStore.State.FAILED, message);
                 postError(
                         listener,
-                        activity.getString(
-                                R.string.offline_package_failed,
-                                exception.getMessage() == null
-                                        ? exception.getClass().getSimpleName()
-                                        : exception.getMessage()
-                        )
+                        message
                 );
             }
         });
@@ -438,91 +444,57 @@ public final class SecurePackageInstaller {
         ) == 1;
     }
 
-    private File download(
-            String packageName,
-            String sourceUrl,
-            String userAgent,
-            String cookie
-    ) throws IOException {
-        File folder = activity.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS);
-        if (folder == null && (folder = activity.getCacheDir()) == null) {
-            throw new IOException("No writable download folder");
+    private File downloadFolder() throws IOException {
+        File parent = activity.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS);
+        if (parent == null) parent = activity.getCacheDir();
+        if (parent == null) throw new IOException("No writable download folder");
+        File folder = new File(parent, "aptelly-installs");
+        if (!folder.isDirectory() && !folder.mkdirs()) throw new IOException("Cannot create download folder");
+        // Only our abandoned staging files; never touch installed apps or user data.
+        File[] stale = folder.listFiles();
+        long cutoff = System.currentTimeMillis() - 24L * 60 * 60 * 1000;
+        if (stale != null) for (File file : stale) {
+            if (file.isFile() && file.lastModified() < cutoff
+                    && (file.getName().endsWith(".part") || file.getName().endsWith(".apk"))) {
+                deleteQuietly(file);
+            }
         }
-        File target = new File(folder, packageName + ".apk");
-        File temporary = new File(folder, packageName + ".part");
+        return folder;
+    }
 
-        HttpURLConnection connection = (HttpURLConnection) new URL(sourceUrl).openConnection();
-        connection.setConnectTimeout(20_000);
-        connection.setReadTimeout(120_000);
-        connection.setInstanceFollowRedirects(true);
-        connection.setRequestProperty(
-                "User-Agent",
-                userAgent == null || userAgent.isEmpty()
-                        ? "Aptelly/" + BuildConfig.VERSION_NAME
-                        : userAgent
-        );
-        if (cookie != null && !cookie.isEmpty()) {
-            connection.setRequestProperty("Cookie", cookie);
-        }
-        try {
-            int status = connection.getResponseCode();
-            if (status < 200 || status >= 300) {
-                throw new IOException("HTTP " + status);
-            }
-            try (InputStream input = connection.getInputStream();
-                 FileOutputStream output = new FileOutputStream(temporary)) {
-                byte[] buffer = new byte[64 * 1024];
-                int count;
-                while ((count = input.read(buffer)) != -1) {
-                    if (Thread.currentThread().isInterrupted()) {
-                        throw new IOException("Download cancelled");
-                    }
-                    output.write(buffer, 0, count);
-                }
-                output.getFD().sync();
-            }
-            if (target.exists() && !target.delete()) {
-                throw new IOException("Cannot replace old download");
-            }
-            if (!temporary.renameTo(target)) {
-                throw new IOException("Cannot finalize download");
-            }
-            return target;
-        } finally {
-            connection.disconnect();
-            deleteQuietly(temporary);
+    private String downloadFailure(DownloadBudget.Failure failure) {
+        switch (failure.reason) {
+            case SPACE: return activity.getString(R.string.install_download_space);
+            case SIZE: return activity.getString(R.string.install_download_size);
+            case TIMEOUT: return activity.getString(R.string.install_download_timeout);
+            default: return activity.getString(R.string.install_download_cancelled);
         }
     }
 
     private File copyBundledAsset(String assetName, String fileName) throws IOException {
-        File folder = activity.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS);
-        if (folder == null && (folder = activity.getCacheDir()) == null) {
-            throw new IOException("No writable package folder");
-        }
+        File folder = downloadFolder();
         File target = new File(folder, fileName);
         File temporary = new File(folder, fileName + ".part");
-        try (InputStream input = activity.getAssets().open(assetName);
-             FileOutputStream output = new FileOutputStream(temporary)) {
-            byte[] buffer = new byte[64 * 1024];
-            int count;
-            while ((count = input.read(buffer)) != -1) {
-                if (Thread.currentThread().isInterrupted()) {
-                    throw new IOException("Copy cancelled");
-                }
-                output.write(buffer, 0, count);
+        long size = -1;
+        try (android.content.res.AssetFileDescriptor descriptor = activity.getAssets().openFd(assetName)) {
+            size = descriptor.getLength();
+        } catch (IOException compressedAsset) {
+            // Compressed assets have no file descriptor. The streaming budget still applies.
+        }
+        DownloadBudget budget = new DownloadBudget(size);
+        budget.preflight(folder.getUsableSpace());
+        try {
+            try (InputStream input = activity.getAssets().open(assetName);
+                 FileOutputStream output = new FileOutputStream(temporary)) {
+                budget.copy(input, output, size, folder::getUsableSpace, null);
+                output.getFD().sync();
             }
-            output.getFD().sync();
+            budget.timeoutMillis(1);
+            PackageDownload.replace(temporary, target);
+            return target;
         } finally {
-            if (target.exists() && !target.delete()) {
-                deleteQuietly(temporary);
-                throw new IOException("Cannot replace old bundled package");
-            }
-        }
-        if (!temporary.renameTo(target)) {
             deleteQuietly(temporary);
-            throw new IOException("Cannot finalize bundled package");
         }
-        return target;
     }
 
     private boolean isInstalled(String packageName) {

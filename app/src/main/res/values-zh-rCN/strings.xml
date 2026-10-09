@@ -324,4 +324,8 @@
     <string name="match_account_required">请使用您自己的服务账号；可能需要订阅及受支持的地区。</string>
     <string name="install_target_not_verified">无法确认安装后的版本或签名。安装尚未完成，请重试。</string>
     <string name="install_pending_confirmation">请先完成或取消当前系统安装，再安装其他应用。</string>
+    <string name="install_download_space">电视存储空间不足，请清理一些空间后重试。</string>
+    <string name="install_download_size">下载大小与已核验安装包不符或超过限制，请稍后重试。</string>
+    <string name="install_download_timeout">下载时间过长，请检查网络后重试。</string>
+    <string name="install_download_cancelled">下载已取消，可以重新尝试。</string>
 </resources>

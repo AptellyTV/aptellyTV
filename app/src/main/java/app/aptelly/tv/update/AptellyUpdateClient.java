@@ -13,6 +13,8 @@ import android.os.Looper;
 import androidx.core.content.FileProvider;
 
 import app.aptelly.tv.BuildConfig;
+import app.aptelly.tv.install.DownloadBudget;
+import app.aptelly.tv.install.PackageDownload;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -61,30 +63,36 @@ public final class AptellyUpdateClient {
         executor.execute(() -> {
             try {
                 HttpURLConnection releaseConnection = open(GITHUB_LATEST_RELEASE);
-                int releaseCode = releaseConnection.getResponseCode();
-                if (releaseCode == 404) {
-                    post(listener, Status.NOT_CONFIGURED, "");
-                    return;
+                JSONObject release;
+                try {
+                    int releaseCode = releaseConnection.getResponseCode();
+                    if (releaseCode == 404) {
+                        post(listener, Status.NOT_CONFIGURED, "");
+                        return;
+                    }
+                    if (releaseCode != 200) throw new IllegalStateException("GitHub HTTP " + releaseCode);
+                    release = new JSONObject(readText(releaseConnection, MAX_MANIFEST_BYTES));
+                } finally {
+                    releaseConnection.disconnect();
                 }
-                if (releaseCode != 200) {
-                    throw new IllegalStateException("GitHub HTTP " + releaseCode);
-                }
-                JSONObject release = new JSONObject(
-                        readText(releaseConnection, MAX_MANIFEST_BYTES)
-                );
                 String manifestUrl = releaseManifestUrl(release);
                 if (manifestUrl.isEmpty()) {
                     post(listener, Status.NOT_CONFIGURED, "");
                     return;
                 }
                 HttpURLConnection connection = open(manifestUrl);
-                int code = connection.getResponseCode();
-                if (code == 404) {
-                    post(listener, Status.NOT_CONFIGURED, "");
-                    return;
+                String envelope;
+                try {
+                    int code = connection.getResponseCode();
+                    if (code == 404) {
+                        post(listener, Status.NOT_CONFIGURED, "");
+                        return;
+                    }
+                    if (code != 200) throw new IllegalStateException("HTTP " + code);
+                    envelope = readText(connection, MAX_MANIFEST_BYTES);
+                } finally {
+                    connection.disconnect();
                 }
-                if (code != 200) throw new IllegalStateException("HTTP " + code);
-                String envelope = readText(connection, MAX_MANIFEST_BYTES);
                 AptellyUpdateManifest manifest = AptellyUpdateVerifier.verify(envelope);
                 if (manifest.minSdk > Build.VERSION.SDK_INT) {
                     throw new SecurityException("Update requires API " + manifest.minSdk);
@@ -127,36 +135,35 @@ public final class AptellyUpdateClient {
         File partial = new File(activity.getCacheDir(), "aptelly-update.apk.part");
         File complete = new File(activity.getCacheDir(), "aptelly-update.apk");
         if (partial.exists() && !partial.delete()) throw new IllegalStateException("Stale update");
-        HttpURLConnection connection = open(manifest.apkUrl);
-        int code = connection.getResponseCode();
-        if (code != 200) throw new IllegalStateException("APK HTTP " + code);
-        long declared = connection.getContentLengthLong();
-        if (declared > MAX_APK_BYTES || (declared > 0 && declared != manifest.sizeBytes)) {
-            throw new SecurityException("Update size mismatch");
+        if (manifest.sizeBytes <= 0 || manifest.sizeBytes > MAX_APK_BYTES) {
+            throw new SecurityException("Update too large");
         }
-        long total = 0;
-        try (InputStream input = connection.getInputStream();
-             FileOutputStream output = new FileOutputStream(partial)) {
-            byte[] buffer = new byte[64 * 1024];
-            int count;
-            while ((count = input.read(buffer)) >= 0) {
-                total += count;
-                if (total > MAX_APK_BYTES) throw new SecurityException("Update too large");
-                output.write(buffer, 0, count);
+        DownloadBudget budget = new DownloadBudget(manifest.sizeBytes);
+        budget.preflight(activity.getCacheDir().getUsableSpace());
+        HttpURLConnection connection = null;
+        try {
+            connection = open(manifest.apkUrl);
+            int code = connection.getResponseCode();
+            if (code != 200) throw new IllegalStateException("APK HTTP " + code);
+            budget.checkLength(manifest.sizeBytes, connection.getContentLengthLong());
+            final HttpURLConnection active = connection;
+            try (InputStream input = connection.getInputStream();
+                 FileOutputStream output = new FileOutputStream(partial)) {
+                budget.copy(input, output, manifest.sizeBytes,
+                        activity.getCacheDir()::getUsableSpace,
+                        () -> active.setReadTimeout(budget.timeoutMillis(30_000)));
+                output.getFD().sync();
             }
-            output.getFD().sync();
-        } catch (Exception error) {
-            partial.delete();
-            throw error;
+            if (!manifest.sha256.equals(sha256(partial))) {
+                throw new SecurityException("Update SHA-256 mismatch");
+            }
+            validateApk(partial, manifest);
+            PackageDownload.replace(partial, complete);
+            return complete;
+        } finally {
+            if (connection != null) connection.disconnect();
+            if (partial.exists()) partial.delete();
         }
-        if (total != manifest.sizeBytes || !manifest.sha256.equals(sha256(partial))) {
-            partial.delete();
-            throw new SecurityException("Update SHA-256 mismatch");
-        }
-        validateApk(partial, manifest);
-        if (complete.exists() && !complete.delete()) throw new IllegalStateException("Old update");
-        if (!partial.renameTo(complete)) throw new IllegalStateException("Finalize update failed");
-        return complete;
     }
 
     private void validateApk(File apk, AptellyUpdateManifest manifest) throws Exception {
@@ -265,11 +272,16 @@ public final class AptellyUpdateClient {
     }
 
     private static String readText(HttpURLConnection connection, int maxBytes) throws Exception {
+        long started = System.nanoTime();
         try (InputStream input = connection.getInputStream();
              ByteArrayOutputStream output = new ByteArrayOutputStream()) {
             byte[] buffer = new byte[8192];
             int count;
             while ((count = input.read(buffer)) >= 0) {
+                if (Thread.currentThread().isInterrupted()
+                        || System.nanoTime() - started >= 60L * 1_000_000_000) {
+                    throw new java.io.IOException("Update manifest timed out or cancelled");
+                }
                 if (output.size() + count > maxBytes) {
                     throw new SecurityException("Update manifest too large");
                 }

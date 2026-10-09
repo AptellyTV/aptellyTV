@@ -324,4 +324,8 @@
     <string name="match_account_required">Usa tu propia cuenta del servicio. Puede requerir una suscripción y una región admitida.</string>
     <string name="install_target_not_verified">No se pudo verificar la versión o firma instalada. La instalación está incompleta; inténtalo de nuevo.</string>
     <string name="install_pending_confirmation">Completa o cancela la instalación actual antes de iniciar otra.</string>
+    <string name="install_download_space">No hay suficiente espacio en el televisor. Libera espacio y vuelve a intentarlo.</string>
+    <string name="install_download_size">El tamaño no coincide con el paquete verificado o supera el límite. Inténtalo más tarde.</string>
+    <string name="install_download_timeout">La descarga tardó demasiado. Revisa la conexión e inténtalo de nuevo.</string>
+    <string name="install_download_cancelled">Descarga cancelada. Puedes intentarlo de nuevo.</string>
 </resources>

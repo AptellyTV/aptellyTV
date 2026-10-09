@@ -295,4 +295,8 @@
     <string name="match_account_required">請使用您自己的服務帳號；可能需要訂閱及支援的地區。</string>
     <string name="install_target_not_verified">無法確認安裝後的版本或簽章。安裝尚未完成，請重試。</string>
     <string name="install_pending_confirmation">請先完成或取消目前系統安裝，再安裝其他應用程式。</string>
+    <string name="install_download_space">電視儲存空間不足，請清理一些空間後重試。</string>
+    <string name="install_download_size">下載大小與已核驗安裝包不符或超過限制，請稍後重試。</string>
+    <string name="install_download_timeout">下載時間過長，請檢查網路後重試。</string>
+    <string name="install_download_cancelled">下載已取消，可以重新嘗試。</string>
 </resources>
