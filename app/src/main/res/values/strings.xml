@@ -338,4 +338,12 @@
     <string name="install_download_size">The download size does not match the verified package or exceeds the limit. Try again later.</string>
     <string name="install_download_timeout">The download took too long. Check the connection and try again.</string>
     <string name="install_download_cancelled">Download cancelled. You can try again.</string>
+    <string name="install_progress_known">Downloaded %1$s / %2$s (%3$d%%)</string>
+    <string name="install_progress_unknown">Downloaded %1$s</string>
+    <string name="install_download_cancelling">Cancelling download…</string>
+    <string name="setup_jellyfin">Prepare your Jellyfin server address and account. After installation, add the server and sign in, then play your own content.</string>
+    <string name="setup_moonlight">Prepare a computer with game streaming enabled. After installation, add the computer and complete PIN pairing before starting a stream.</string>
+    <string name="setup_vpn">Prepare your own VPN configuration or subscription. Import it in the app, approve Android’s VPN request, then enable the connection.</string>
+    <string name="setup_tailscale">Prepare your Tailscale account. After installation, sign in and authorize the TV to join your network.</string>
+    <string name="setup_service_account">Prepare your service account. A subscription and a supported region may be required. After installation, sign in and check playback and sound.</string>
 </resources>

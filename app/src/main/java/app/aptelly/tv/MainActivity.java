@@ -52,6 +52,7 @@ import app.aptelly.tv.install.StoreInstallRouter;
 import app.aptelly.tv.ui.CinematicBackdropView;
 import app.aptelly.tv.ui.TvCardView;
 import app.aptelly.tv.ui.TvMessageDialog;
+import app.aptelly.tv.ui.InstallProgressDialog;
 
 import java.text.DateFormat;
 import java.util.ArrayList;
@@ -120,6 +121,7 @@ public final class MainActivity extends Activity {
     private TextView heroAdvantageView;
     private PosterFeedRepository posterRepository;
     private SecurePackageInstaller packageInstaller;
+    private InstallProgressDialog installProgress;
     private DeviceProfile deviceProfile;
     private String selectedCategory = "installed";
     private String selectedPackage;
@@ -174,6 +176,7 @@ public final class MainActivity extends Activity {
         CatalogAvailability.configure(deviceProfile);
         posterRepository = new PosterFeedRepository(this);
         packageInstaller = new SecurePackageInstaller(this);
+        installProgress = new InstallProgressDialog(this, packageInstaller);
         setContentView(buildScreen());
         registerPackageChangeReceiver();
         hideSystemBars();
@@ -234,6 +237,7 @@ public final class MainActivity extends Activity {
     protected void onDestroy() {
         clockHandler.removeCallbacksAndMessages(null);
         posterRepository.close();
+        installProgress.close();
         packageInstaller.shutdown();
         if (packageReceiverRegistered) {
             unregisterReceiver(packageChangeReceiver);
@@ -1054,24 +1058,14 @@ public final class MainActivity extends Activity {
             return;
         }
 
-        TvMessageDialog.confirmInstall(this, app.name, () -> installCatalogApp(app));
+        TvMessageDialog.confirmInstall(this, app, () -> installCatalogApp(app));
     }
 
     private void installCatalogApp(CatalogApp app) {
         if (blockForMissingGoogleRuntime(app)) {
             return;
         }
-        packageInstaller.installIfMissing(app, new SecurePackageInstaller.Listener() {
-            @Override
-            public void onStatus(String status) {
-                Toast.makeText(MainActivity.this, status, Toast.LENGTH_SHORT).show();
-            }
-
-            @Override
-            public void onError(String message) {
-                TvMessageDialog.showInstallError(MainActivity.this, message);
-            }
-        });
+        packageInstaller.installIfMissing(app, installProgress.listener(app));
     }
 
     private boolean blockForMissingGoogleRuntime(CatalogApp app) {

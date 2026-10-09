@@ -46,6 +46,7 @@ import app.aptelly.tv.install.InstallGuidance;
 import app.aptelly.tv.install.InstallTarget;
 import app.aptelly.tv.ui.AmbientBackgroundView;
 import app.aptelly.tv.ui.TvMessageDialog;
+import app.aptelly.tv.ui.InstallProgressDialog;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -59,6 +60,7 @@ public final class AppManagerActivity extends Activity {
     private ScrollView screenScroll;
     private LinearLayout content;
     private SecurePackageInstaller packageInstaller;
+    private InstallProgressDialog installProgress;
     private DeviceProfile deviceProfile;
     private String focusPackage;
     private boolean focusRequested;
@@ -69,6 +71,7 @@ public final class AppManagerActivity extends Activity {
         deviceProfile = DeviceProfile.detect(this);
         CatalogAvailability.configure(deviceProfile);
         packageInstaller = new SecurePackageInstaller(this);
+        installProgress = new InstallProgressDialog(this, packageInstaller);
         focusPackage = getIntent().getStringExtra(EXTRA_FOCUS_PACKAGE);
         setContentView(buildScreen());
         hideSystemBars();
@@ -90,6 +93,7 @@ public final class AppManagerActivity extends Activity {
 
     @Override
     protected void onDestroy() {
+        installProgress.close();
         packageInstaller.shutdown();
         updateExecutor.shutdownNow();
         super.onDestroy();
@@ -468,7 +472,7 @@ public final class AppManagerActivity extends Activity {
             return;
         }
 
-        TvMessageDialog.confirmInstall(this, app.name, () -> {
+        TvMessageDialog.confirmInstall(this, app, () -> {
             installDirect(app, false);
         });
     }
@@ -477,17 +481,7 @@ public final class AppManagerActivity extends Activity {
         if (blockForMissingGoogleRuntime(app)) {
             return;
         }
-        SecurePackageInstaller.Listener listener = new SecurePackageInstaller.Listener() {
-            @Override
-            public void onStatus(String status) {
-                Toast.makeText(AppManagerActivity.this, status, Toast.LENGTH_SHORT).show();
-            }
-
-            @Override
-            public void onError(String message) {
-                TvMessageDialog.showInstallError(AppManagerActivity.this, message);
-            }
-        };
+        SecurePackageInstaller.Listener listener = installProgress.listener(app);
         if (allowUpdate) {
             packageInstaller.install(app, listener);
         } else {

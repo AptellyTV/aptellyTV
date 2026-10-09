@@ -20,6 +20,9 @@ public final class AptellyArtworkView extends View {
     private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint stroke = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final RectF bounds = new RectF();
+    private final Typeface titleFont = Typeface.create(Typeface.DEFAULT, Typeface.BOLD);
+    private final Typeface footerFont = Typeface.create(Typeface.MONOSPACE, Typeface.BOLD);
+    private Shader halo, core;
 
     public AptellyArtworkView(Context context) {
         super(context);
@@ -29,16 +32,12 @@ public final class AptellyArtworkView extends View {
     }
 
     @Override
-    protected void onDraw(Canvas canvas) {
-        super.onDraw(canvas);
-        float width = getWidth();
-        float height = getHeight();
-        float centerX = width * 0.55f;
-        float centerY = height * 0.50f;
+    protected void onSizeChanged(int width, int height, int oldWidth, int oldHeight) {
+        super.onSizeChanged(width, height, oldWidth, oldHeight);
+        if (width <= 0 || height <= 0) return;
+        float centerX = width * 0.55f, centerY = height * 0.50f;
         float radius = Math.min(width, height) * 0.33f;
-        float phase = (SystemClock.uptimeMillis() % 18_000L) / 18_000f * 360f;
-
-        paint.setShader(new RadialGradient(
+        halo = new RadialGradient(
                 centerX,
                 centerY,
                 radius * 1.65f,
@@ -49,7 +48,38 @@ public final class AptellyArtworkView extends View {
                 },
                 new float[]{0f, 0.42f, 1f},
                 Shader.TileMode.CLAMP
-        ));
+        );
+        float coreSize = radius * 1.15f;
+        bounds.set(centerX - coreSize / 2, centerY - coreSize / 2,
+                centerX + coreSize / 2, centerY + coreSize / 2);
+        core = new LinearGradient(
+                bounds.left,
+                bounds.top,
+                bounds.right,
+                bounds.bottom,
+                new int[]{
+                        Color.rgb(125, 221, 255),
+                        Color.rgb(99, 113, 255),
+                        Color.rgb(151, 81, 255)
+                },
+                null,
+                Shader.TileMode.CLAMP
+        );
+    }
+
+    @Override
+    protected void onDraw(Canvas canvas) {
+        super.onDraw(canvas);
+        float width = getWidth();
+        float height = getHeight();
+        if (width <= 0 || height <= 0) return;
+        paint.setAlpha(255);
+        float centerX = width * 0.55f;
+        float centerY = height * 0.50f;
+        float radius = Math.min(width, height) * 0.33f;
+        float phase = (SystemClock.uptimeMillis() % 18_000L) / 18_000f * 360f;
+
+        paint.setShader(halo);
         canvas.drawCircle(centerX, centerY, radius * 1.65f, paint);
         paint.setShader(null);
 
@@ -82,19 +112,7 @@ public final class AptellyArtworkView extends View {
                 centerX + coreSize / 2f,
                 centerY + coreSize / 2f
         );
-        paint.setShader(new LinearGradient(
-                bounds.left,
-                bounds.top,
-                bounds.right,
-                bounds.bottom,
-                new int[]{
-                        Color.rgb(125, 221, 255),
-                        Color.rgb(99, 113, 255),
-                        Color.rgb(151, 81, 255)
-                },
-                null,
-                Shader.TileMode.CLAMP
-        ));
+        paint.setShader(core);
         canvas.drawRoundRect(bounds, coreSize * 0.28f, coreSize * 0.28f, paint);
         paint.setShader(null);
 
@@ -103,7 +121,8 @@ public final class AptellyArtworkView extends View {
         canvas.drawRoundRect(bounds, coreSize * 0.28f, coreSize * 0.28f, stroke);
 
         paint.setColor(Color.WHITE);
-        paint.setTypeface(Typeface.create(Typeface.DEFAULT, Typeface.BOLD));
+        paint.setTypeface(titleFont);
+        paint.setLetterSpacing(0f);
         paint.setTextAlign(Paint.Align.CENTER);
         paint.setTextSize(radius * 0.40f);
         canvas.drawText("TV", centerX, centerY + radius * 0.14f, paint);
@@ -113,7 +132,7 @@ public final class AptellyArtworkView extends View {
         drawNode(canvas, centerX - radius * 1.02f, centerY - radius * 0.66f, 2.8f);
 
         paint.setTextAlign(Paint.Align.LEFT);
-        paint.setTypeface(Typeface.create(Typeface.MONOSPACE, Typeface.BOLD));
+        paint.setTypeface(footerFont);
         paint.setTextSize(dp(8.5f));
         paint.setLetterSpacing(0.16f);
         paint.setColor(Color.argb(155, 221, 237, 255));

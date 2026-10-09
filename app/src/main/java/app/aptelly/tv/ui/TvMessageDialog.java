@@ -5,6 +5,7 @@ import android.app.AlertDialog;
 import android.content.DialogInterface;
 
 import app.aptelly.tv.R;
+import app.aptelly.tv.catalog.CatalogApp;
 
 public final class TvMessageDialog {
     private TvMessageDialog() {
@@ -30,12 +31,23 @@ public final class TvMessageDialog {
             String appName,
             Runnable onConfirm
     ) {
+        confirmInstall(activity, appName, activity.getString(R.string.install_confirm_message, appName), onConfirm);
+    }
+
+    public static void confirmInstall(Activity activity, CatalogApp app, Runnable onConfirm) {
+        String message = activity.getString(R.string.install_confirm_message, app.name);
+        String preparation = AppSetupGuide.preparation(activity, app.packageName);
+        if (!preparation.isEmpty()) message += "\n\n" + preparation;
+        confirmInstall(activity, app.name, message, onConfirm);
+    }
+
+    private static void confirmInstall(Activity activity, String appName, String message, Runnable onConfirm) {
         if (activity.isFinishing() || activity.isDestroyed()) {
             return;
         }
         AlertDialog dialog = new AlertDialog.Builder(activity)
                 .setTitle(activity.getString(R.string.install_confirm_title, appName))
-                .setMessage(activity.getString(R.string.install_confirm_message, appName))
+                .setMessage(message)
                 .setNegativeButton(android.R.string.cancel, null)
                 .setPositiveButton(R.string.install, (ignored, which) -> onConfirm.run())
                 .create();

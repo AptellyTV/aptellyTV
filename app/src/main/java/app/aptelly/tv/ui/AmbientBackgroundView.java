@@ -16,6 +16,8 @@ import android.view.View;
 public final class AmbientBackgroundView extends View {
     private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint gridPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private Shader background;
+    private final Shader[] glows = new Shader[3];
     private int viewWidth;
     private int viewHeight;
 
@@ -29,16 +31,8 @@ public final class AmbientBackgroundView extends View {
     protected void onSizeChanged(int width, int height, int oldWidth, int oldHeight) {
         viewWidth = width;
         viewHeight = height;
-    }
-
-    @Override
-    protected void onDraw(Canvas canvas) {
-        super.onDraw(canvas);
-        if (viewWidth <= 0 || viewHeight <= 0) {
-            return;
-        }
-
-        paint.setShader(new LinearGradient(
+        if (width <= 0 || height <= 0) return;
+        background = new LinearGradient(
                 0,
                 0,
                 0,
@@ -50,7 +44,25 @@ public final class AmbientBackgroundView extends View {
                 },
                 new float[]{0f, 0.52f, 1f},
                 Shader.TileMode.CLAMP
-        ));
+        );
+        glows[0] = glow(width * 0.82f, height * 0.08f, Math.max(width, height) * 0.58f, Color.argb(95, 64, 82, 255));
+        glows[1] = glow(width * 0.18f, height * 0.48f, Math.max(width, height) * 0.52f, Color.argb(64, 0, 198, 209));
+        glows[2] = glow(width * 0.62f, height * 0.84f, Math.max(width, height) * 0.48f, Color.argb(54, 145, 56, 255));
+    }
+
+    private Shader glow(float x, float y, float radius, int color) {
+        return new RadialGradient(x, y, radius, color, Color.TRANSPARENT, Shader.TileMode.CLAMP);
+    }
+
+    @Override
+    protected void onDraw(Canvas canvas) {
+        super.onDraw(canvas);
+        if (viewWidth <= 0 || viewHeight <= 0) {
+            return;
+        }
+
+        paint.setAlpha(255);
+        paint.setShader(background);
         canvas.drawRect(0, 0, viewWidth, viewHeight, paint);
 
         drawGlow(
@@ -58,36 +70,29 @@ public final class AmbientBackgroundView extends View {
                 viewWidth * 0.82f,
                 viewHeight * 0.08f,
                 Math.max(viewWidth, viewHeight) * 0.58f,
-                Color.argb(95, 64, 82, 255)
+                glows[0]
         );
         drawGlow(
                 canvas,
                 viewWidth * 0.18f,
                 viewHeight * 0.48f,
                 Math.max(viewWidth, viewHeight) * 0.52f,
-                Color.argb(64, 0, 198, 209)
+                glows[1]
         );
         drawGlow(
                 canvas,
                 viewWidth * 0.62f,
                 viewHeight * 0.84f,
                 Math.max(viewWidth, viewHeight) * 0.48f,
-                Color.argb(54, 145, 56, 255)
+                glows[2]
         );
 
         drawGrid(canvas);
         drawParticles(canvas);
     }
 
-    private void drawGlow(Canvas canvas, float x, float y, float radius, int color) {
-        paint.setShader(new RadialGradient(
-                x,
-                y,
-                radius,
-                color,
-                Color.TRANSPARENT,
-                Shader.TileMode.CLAMP
-        ));
+    private void drawGlow(Canvas canvas, float x, float y, float radius, Shader glow) {
+        paint.setShader(glow);
         canvas.drawCircle(x, y, radius, paint);
         paint.setShader(null);
     }

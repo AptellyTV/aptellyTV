@@ -164,11 +164,9 @@ public final class StaticDeviceProfile {
     }
 
     private static String detectWidevineLevel() {
-        if (!MediaDrm.isCryptoSchemeSupported(WIDEVINE_UUID)) {
-            return "Unavailable";
-        }
         MediaDrm mediaDrm = null;
         try {
+            if (!MediaDrm.isCryptoSchemeSupported(WIDEVINE_UUID)) return "Unavailable";
             mediaDrm = new MediaDrm(WIDEVINE_UUID);
             String level = mediaDrm.getPropertyString("securityLevel");
             return level == null || level.isEmpty() ? "Unknown" : level;
@@ -176,7 +174,7 @@ public final class StaticDeviceProfile {
             return "Unknown";
         } finally {
             if (mediaDrm != null) {
-                mediaDrm.release();
+                try { mediaDrm.release(); } catch (RuntimeException unavailableProvider) { }
             }
         }
     }

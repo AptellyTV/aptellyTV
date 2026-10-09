@@ -18,6 +18,7 @@ public final class CinematicBackdropView extends View {
     private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.FILTER_BITMAP_FLAG);
     private final Rect source = new Rect();
     private final RectF target = new RectF();
+    private Shader background, horizontalShade, verticalShade, glow;
     private Bitmap artwork;
     private int accentColor = Color.rgb(95, 92, 220);
     private int deepColor = Color.rgb(7, 11, 25);
@@ -33,12 +34,67 @@ public final class CinematicBackdropView extends View {
             deepColor = scene.deepColor;
         }
         artwork = null;
+        prepareShaders(getWidth(), getHeight());
         invalidate();
     }
 
     public void setArtwork(Bitmap bitmap) {
         artwork = bitmap;
         invalidate();
+    }
+
+    @Override
+    protected void onSizeChanged(int width, int height, int oldWidth, int oldHeight) {
+        super.onSizeChanged(width, height, oldWidth, oldHeight);
+        prepareShaders(width, height);
+    }
+
+    private void prepareShaders(int width, int height) {
+        if (width <= 0 || height <= 0) return;
+        background = new LinearGradient(
+                0,
+                0,
+                width,
+                height,
+                new int[]{deepColor, mix(deepColor, accentColor, 0.28f), Color.rgb(4, 6, 12)},
+                new float[]{0f, 0.64f, 1f},
+                Shader.TileMode.CLAMP
+        );
+        horizontalShade = new LinearGradient(
+                0,
+                0,
+                width,
+                0,
+                new int[]{
+                        Color.argb(246, 3, 6, 13),
+                        Color.argb(225, 3, 7, 15),
+                        Color.argb(92, 3, 7, 15),
+                        Color.argb(28, 3, 7, 15)
+                },
+                new float[]{0f, 0.26f, 0.63f, 1f},
+                Shader.TileMode.CLAMP
+        );
+        verticalShade = new LinearGradient(
+                0,
+                0,
+                0,
+                height,
+                new int[]{
+                        Color.argb(44, 0, 0, 0),
+                        Color.TRANSPARENT,
+                        Color.argb(220, 2, 4, 10)
+                },
+                new float[]{0f, 0.56f, 1f},
+                Shader.TileMode.CLAMP
+        );
+        glow = new RadialGradient(
+                width * 0.78f,
+                height * 0.30f,
+                Math.max(width, height) * 0.52f,
+                withAlpha(accentColor, 205),
+                Color.TRANSPARENT,
+                Shader.TileMode.CLAMP
+        );
     }
 
     @Override
@@ -50,15 +106,8 @@ public final class CinematicBackdropView extends View {
             return;
         }
 
-        paint.setShader(new LinearGradient(
-                0,
-                0,
-                width,
-                height,
-                new int[]{deepColor, mix(deepColor, accentColor, 0.28f), Color.rgb(4, 6, 12)},
-                new float[]{0f, 0.64f, 1f},
-                Shader.TileMode.CLAMP
-        ));
+        paint.setAlpha(255);
+        paint.setShader(background);
         canvas.drawRect(0, 0, width, height, paint);
         paint.setShader(null);
 
@@ -80,48 +129,17 @@ public final class CinematicBackdropView extends View {
             drawGeneratedArtwork(canvas, width, height);
         }
 
-        paint.setShader(new LinearGradient(
-                0,
-                0,
-                width,
-                0,
-                new int[]{
-                        Color.argb(246, 3, 6, 13),
-                        Color.argb(225, 3, 7, 15),
-                        Color.argb(92, 3, 7, 15),
-                        Color.argb(28, 3, 7, 15)
-                },
-                new float[]{0f, 0.26f, 0.63f, 1f},
-                Shader.TileMode.CLAMP
-        ));
+        paint.setAlpha(255);
+        paint.setShader(horizontalShade);
         canvas.drawRect(0, 0, width, height, paint);
 
-        paint.setShader(new LinearGradient(
-                0,
-                0,
-                0,
-                height,
-                new int[]{
-                        Color.argb(44, 0, 0, 0),
-                        Color.TRANSPARENT,
-                        Color.argb(220, 2, 4, 10)
-                },
-                new float[]{0f, 0.56f, 1f},
-                Shader.TileMode.CLAMP
-        ));
+        paint.setShader(verticalShade);
         canvas.drawRect(0, 0, width, height, paint);
         paint.setShader(null);
     }
 
     private void drawGeneratedArtwork(Canvas canvas, int width, int height) {
-        paint.setShader(new RadialGradient(
-                width * 0.78f,
-                height * 0.30f,
-                Math.max(width, height) * 0.52f,
-                withAlpha(accentColor, 205),
-                Color.TRANSPARENT,
-                Shader.TileMode.CLAMP
-        ));
+        paint.setShader(glow);
         canvas.drawCircle(
                 width * 0.78f,
                 height * 0.30f,

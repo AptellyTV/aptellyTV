@@ -44,6 +44,12 @@ public final class SecurePackageInstaller {
         void onStatus(String status);
 
         void onError(String message);
+        default void onDownloadStarted() {}
+        default void onDownloadProgress(long received, long total) {}
+        default void onDownloadFinished() {}
+        default void onCancelled() {}
+        default void onInstalled(String actualPackage) {}
+
     }
 
     private final Activity activity;
@@ -52,6 +58,10 @@ public final class SecurePackageInstaller {
     private static final Set<String> inFlightPackages = ConcurrentHashMap.newKeySet();
     private final Map<String, InstallPlan> inFlightPlans = new ConcurrentHashMap<>();
     private final Map<String, List<File>> inFlightFiles = new ConcurrentHashMap<>();
+    private final Map<String, Listener> inFlightListeners = new ConcurrentHashMap<>();
+    private volatile DownloadOperation activeDownload;
+    private volatile boolean hostClosed;
+    private long lastProgressNanos;
     private Runnable pendingPermissionAction;
     private boolean pendingOemPermissionFlow;
     private boolean oemPermissionBypassOnce;
@@ -129,6 +139,7 @@ public final class SecurePackageInstaller {
             return;
         }
 
+        DownloadOperation operation = beginDownload(listener);
         listener.onStatus(activity.getString(R.string.downloading, app.name));
         pendingInstallStore.save(
                 app.packageName,
@@ -139,104 +150,119 @@ public final class SecurePackageInstaller {
         executor.execute(() -> {
             List<File> files = new ArrayList<>();
             try {
+                operation.bindWorker();
                 InstallPlan plan = PackageResolver.resolvePlan(app, StaticDeviceProfile.collect(activity).hardwareProfileId);
+                operation.check();
                 File folder = downloadFolder();
                 long[] sizes = new long[plan.artifacts.size()];
                 for (int index = 0; index < sizes.length; index++) {
                     sizes[index] = plan.artifacts.get(index).sizeBytes;
                 }
                 DownloadBudget budget = new DownloadBudget(sizes);
+                long cached = 0;
+                for (int index = 0; index < sizes.length; index++) {
+                    ArtifactFile artifact = plan.artifacts.get(index);
+                    cached += DownloadCheckpoint.cachedBytes(folder, app.packageName + "-" + index,
+                            artifact.sha256, artifact.sizeBytes);
+                }
+                budget.cached(cached);
+                budget.progress((received, total) -> postProgress(listener, received, total));
                 budget.preflight(folder.getUsableSpace());
                 for (ArtifactFile artifact : plan.artifacts) {
                     files.add(PackageDownload.fetch(folder,
                             app.packageName + "-" + files.size(), artifact.downloadUrl,
-                            "Aptelly/" + BuildConfig.VERSION_NAME, artifact.sizeBytes, budget));
+                            "Aptelly/" + BuildConfig.VERSION_NAME, artifact.sizeBytes, artifact.sha256, budget, operation));
                 }
                 postStatus(listener, activity.getString(R.string.verifying));
+                if (!verifyArtifacts(files, plan)) {
+                    throw new SecurityException(activity.getString(R.string.signature_failed));
+                }
                 InstallPlan inspectedPlan = InspectedInstallPlan.read(activity, plan, files);
                 ApkCompatibilityInspector.requireCompatible(activity, inspectedPlan, files);
-                if (!verifyArtifacts(files, plan)) {
-                    deleteAll(files);
-                    inFlightPackages.remove(app.packageName);
-                    pendingInstallStore.save(
-                            plan.packageName,
-                            plan.appName,
-                            PendingInstallStore.State.FAILED,
-                            activity.getString(R.string.signature_failed)
-                    );
-                    postError(listener, activity.getString(R.string.signature_failed));
-                    return;
-                }
-                activity.runOnUiThread(() -> commitInstall(
-                        inspectedPlan,
-                        files,
-                        app.packageName,
-                        listener
-                ));
+                operation.check();
+                activity.runOnUiThread(() -> {
+                    if (hostClosed || activity.isFinishing() || activity.isDestroyed() || !operation.submit()) {
+                        cancelPrepared(app, files, operation, listener);
+                        return;
+                    }
+                    finishDownload(operation, listener);
+                    commitInstall(inspectedPlan, files, app.packageName, listener);
+                });
             } catch (Exception exception) {
                 Log.e(LOG_TAG, "Install failed for " + app.packageName, exception);
                 deleteAll(files);
-                inFlightPackages.remove(app.packageName);
-                if (exception instanceof NoMatchingArtifactException) {
-                    pendingInstallStore.clear();
-                    NoMatchingArtifactException noMatch =
-                            (NoMatchingArtifactException) exception;
-                    if ("UP_TO_DATE".equals(noMatch.reasonCode)) {
-                        postError(listener, activity.getString(R.string.up_to_date, app.name));
+                activity.runOnUiThread(() -> {
+                    boolean cancelled = operation.cancelled();
+                    finishDownload(operation, listener);
+                    inFlightPackages.remove(app.packageName);
+                    if (cancelled) {
+                        pendingInstallStore.clear();
+                        listener.onCancelled();
                         return;
                     }
-                    activity.runOnUiThread(() -> {
-                        if (StoreInstallRouter.open(activity, app)) {
-                            listener.onStatus(activity.getString(
-                                    R.string.opened_managed_store,
-                                    app.name
-                            ));
+                    if (exception instanceof NoMatchingArtifactException) {
+                        pendingInstallStore.clear();
+                        NoMatchingArtifactException noMatch =
+                                (NoMatchingArtifactException) exception;
+                        if ("UP_TO_DATE".equals(noMatch.reasonCode)) {
+                            postError(listener, activity.getString(R.string.up_to_date, app.name));
                             return;
                         }
-                        listener.onError(InstallGuidance.message(activity, noMatch.reasonCode));
-                    });
-                    return;
-                }
-                String failureMessage = exception instanceof DownloadBudget.Failure
-                        ? downloadFailure((DownloadBudget.Failure) exception)
-                        : shouldSuggestStartingClash(exception)
-                        ? activity.getString(R.string.matcher_unreachable_clash_stopped)
-                        : activity.getString(
-                                R.string.download_failed,
-                                exception.getMessage() == null
-                                        ? exception.getClass().getSimpleName()
-                                        : exception.getMessage()
-                        );
-                if (exception instanceof IOException && !(exception instanceof DownloadBudget.Failure)) {
-                    activity.runOnUiThread(() -> {
-                        if (StoreInstallRouter.open(activity, app)) {
-                            pendingInstallStore.clear();
-                            listener.onStatus(activity.getString(
-                                    R.string.opened_managed_store,
-                                    app.name
-                            ));
-                            return;
-                        }
-                        pendingInstallStore.save(
-                                app.packageName,
-                                app.name,
-                                PendingInstallStore.State.FAILED,
-                                failureMessage
-                        );
-                        listener.onError(failureMessage);
-                    });
-                    return;
-                }
-                pendingInstallStore.save(
-                        app.packageName,
-                        app.name,
-                        PendingInstallStore.State.FAILED,
-                        failureMessage
-                );
-                postError(
-                        listener,
-                        failureMessage
-                );
+                        activity.runOnUiThread(() -> {
+                            if (StoreInstallRouter.open(activity, app)) {
+                                listener.onStatus(activity.getString(
+                                        R.string.opened_managed_store,
+                                        app.name
+                                ));
+                                return;
+                            }
+                            listener.onError(InstallGuidance.message(activity, noMatch.reasonCode));
+                        });
+                        return;
+                    }
+                    String failureMessage = exception instanceof DownloadBudget.Failure
+                            ? downloadFailure((DownloadBudget.Failure) exception)
+                            : shouldSuggestStartingClash(exception)
+                            ? activity.getString(R.string.matcher_unreachable_clash_stopped)
+                            : activity.getString(
+                                    R.string.download_failed,
+                                    exception.getMessage() == null
+                                            ? exception.getClass().getSimpleName()
+                                            : exception.getMessage()
+                            );
+                    if (exception instanceof IOException && !(exception instanceof DownloadBudget.Failure)) {
+                        activity.runOnUiThread(() -> {
+                            if (StoreInstallRouter.open(activity, app)) {
+                                pendingInstallStore.clear();
+                                listener.onStatus(activity.getString(
+                                        R.string.opened_managed_store,
+                                        app.name
+                                ));
+                                return;
+                            }
+                            pendingInstallStore.save(
+                                    app.packageName,
+                                    app.name,
+                                    PendingInstallStore.State.FAILED,
+                                    failureMessage
+                            );
+                            listener.onError(failureMessage);
+                        });
+                        return;
+                    }
+                    pendingInstallStore.save(
+                            app.packageName,
+                            app.name,
+                            PendingInstallStore.State.FAILED,
+                            failureMessage
+                    );
+                    postError(
+                            listener,
+                            failureMessage
+                    );
+                });
+            } finally {
+                operation.unbindWorker();
             }
         });
     }
@@ -281,6 +307,7 @@ public final class SecurePackageInstaller {
             return;
         }
 
+        DownloadOperation operation = beginDownload(listener);
         listener.onStatus(activity.getString(R.string.preparing_offline, app.name));
         pendingInstallStore.save(
                 app.packageName,
@@ -291,10 +318,8 @@ public final class SecurePackageInstaller {
         executor.execute(() -> {
             File apk = null;
             try {
-                apk = copyBundledAsset(
-                        assetName,
-                        app.packageName + "-bundled.apk"
-                );
+                operation.bindWorker();
+                apk = copyBundledAsset(assetName, app.packageName + "-bundled.apk", operation, listener);
                 postStatus(listener, activity.getString(R.string.verifying));
                 InstallPlan compatibilityPlan = new InstallPlan(
                         app.name,
@@ -312,25 +337,24 @@ public final class SecurePackageInstaller {
                                 apk.length()
                         ))
                 );
+                if (!verifyArtifacts(Collections.singletonList(apk), compatibilityPlan)) {
+                    throw new SecurityException(activity.getString(R.string.signature_failed));
+                }
                 ApkCompatibilityInspector.requireCompatible(
                         activity,
                         compatibilityPlan,
                         Collections.singletonList(apk)
                 );
-                if (!verify(
-                        apk,
-                        app.packageName,
-                        expectedCertificateSha256
-                )) {
-                    deleteQuietly(apk);
-                    inFlightPackages.remove(app.packageName);
-                    postError(listener, activity.getString(R.string.signature_failed));
-                    return;
-                }
+                operation.check();
                 File finalApk = apk;
                 InstallPlan plan = InspectedInstallPlan.read(activity, compatibilityPlan,
                         Collections.singletonList(finalApk));
                 activity.runOnUiThread(() -> {
+                    if (hostClosed || activity.isFinishing() || activity.isDestroyed() || !operation.submit()) {
+                        cancelPrepared(app, Collections.singletonList(finalApk), operation, listener);
+                        return;
+                    }
+                    finishDownload(operation, listener);
                     if (isInstalled(app.packageName)) {
                         deleteQuietly(finalApk);
                         inFlightPackages.remove(app.packageName);
@@ -351,18 +375,26 @@ public final class SecurePackageInstaller {
                 });
             } catch (Exception exception) {
                 deleteQuietly(apk);
-                inFlightPackages.remove(app.packageName);
-                String message = exception instanceof DownloadBudget.Failure
-                        ? downloadFailure((DownloadBudget.Failure) exception)
-                        : activity.getString(R.string.offline_package_failed,
-                                exception.getMessage() == null
-                                        ? exception.getClass().getSimpleName() : exception.getMessage());
-                pendingInstallStore.save(app.packageName, app.name,
-                        PendingInstallStore.State.FAILED, message);
-                postError(
-                        listener,
-                        message
-                );
+                activity.runOnUiThread(() -> {
+                    boolean cancelled = operation.cancelled();
+                    finishDownload(operation, listener);
+                    inFlightPackages.remove(app.packageName);
+                    if (cancelled) {
+                        pendingInstallStore.clear();
+                        listener.onCancelled();
+                        return;
+                    }
+                    String message = exception instanceof DownloadBudget.Failure
+                            ? downloadFailure((DownloadBudget.Failure) exception)
+                            : activity.getString(R.string.offline_package_failed,
+                                    exception.getMessage() == null
+                                            ? exception.getClass().getSimpleName() : exception.getMessage());
+                    pendingInstallStore.save(app.packageName, app.name,
+                            PendingInstallStore.State.FAILED, message);
+                    listener.onError(message);
+                });
+            } finally {
+                operation.unbindWorker();
             }
         });
     }
@@ -384,7 +416,47 @@ public final class SecurePackageInstaller {
     }
 
     public void shutdown() {
+        hostClosed = true;
+        cancelDownload();
         executor.shutdownNow();
+    }
+
+    public boolean cancelDownload() {
+        DownloadOperation operation = activeDownload;
+        return operation != null && operation.cancel();
+    }
+
+    private DownloadOperation beginDownload(Listener listener) {
+        DownloadOperation operation = new DownloadOperation();
+        activeDownload = operation;
+        lastProgressNanos = 0;
+        listener.onDownloadStarted();
+        return operation;
+    }
+
+    private void finishDownload(DownloadOperation operation, Listener listener) {
+        if (activeDownload == operation) activeDownload = null;
+        operation.finish();
+        listener.onDownloadFinished();
+    }
+
+    private void cancelPrepared(CatalogApp app, List<File> files, DownloadOperation operation, Listener listener) {
+        deleteAll(files);
+        finishDownload(operation, listener);
+        inFlightPackages.remove(app.packageName);
+        pendingInstallStore.clear();
+        listener.onCancelled();
+    }
+
+    private void postProgress(Listener listener, long received, long total) {
+        long now = System.nanoTime();
+        if (now - lastProgressNanos < 250_000_000 && received != total) return;
+        lastProgressNanos = now;
+        activity.runOnUiThread(() -> {
+            if (!hostClosed && !activity.isFinishing() && !activity.isDestroyed()) {
+                listener.onDownloadProgress(received, total);
+            }
+        });
     }
 
     private boolean ensureInstallPermission(Runnable retry, Listener listener) {
@@ -455,7 +527,7 @@ public final class SecurePackageInstaller {
         long cutoff = System.currentTimeMillis() - 24L * 60 * 60 * 1000;
         if (stale != null) for (File file : stale) {
             if (file.isFile() && file.lastModified() < cutoff
-                    && (file.getName().endsWith(".part") || file.getName().endsWith(".apk"))) {
+                    && (file.getName().endsWith(".part") || file.getName().endsWith(".apk") || file.getName().endsWith(".resume"))) {
                 deleteQuietly(file);
             }
         }
@@ -467,11 +539,13 @@ public final class SecurePackageInstaller {
             case SPACE: return activity.getString(R.string.install_download_space);
             case SIZE: return activity.getString(R.string.install_download_size);
             case TIMEOUT: return activity.getString(R.string.install_download_timeout);
+            case INTEGRITY: return activity.getString(R.string.signature_failed);
             default: return activity.getString(R.string.install_download_cancelled);
         }
     }
 
-    private File copyBundledAsset(String assetName, String fileName) throws IOException {
+    private File copyBundledAsset(String assetName, String fileName,
+                                  DownloadOperation operation, Listener listener) throws IOException {
         File folder = downloadFolder();
         File target = new File(folder, fileName);
         File temporary = new File(folder, fileName + ".part");
@@ -482,11 +556,12 @@ public final class SecurePackageInstaller {
             // Compressed assets have no file descriptor. The streaming budget still applies.
         }
         DownloadBudget budget = new DownloadBudget(size);
+        budget.progress((received, total) -> postProgress(listener, received, total));
         budget.preflight(folder.getUsableSpace());
         try {
             try (InputStream input = activity.getAssets().open(assetName);
                  FileOutputStream output = new FileOutputStream(temporary)) {
-                budget.copy(input, output, size, folder::getUsableSpace, null);
+                budget.copy(input, output, size, folder::getUsableSpace, operation::check);
                 output.getFD().sync();
             }
             budget.timeoutMillis(1);
@@ -606,6 +681,7 @@ public final class SecurePackageInstaller {
         );
         inFlightPlans.put(requestPackageName, plan);
         inFlightFiles.put(requestPackageName, new ArrayList<>(files));
+        inFlightListeners.put(requestPackageName, listener);
         try {
             SessionPackageInstaller.install(
                     activity,
@@ -626,6 +702,7 @@ public final class SecurePackageInstaller {
                             }
                             pendingInstallStore.clear();
                             reportResult(plan, "success", "");
+                            activity.runOnUiThread(() -> listener.onInstalled(plan.packageName));
                             postStatus(
                                     listener,
                                     activity.getString(
@@ -691,9 +768,12 @@ public final class SecurePackageInstaller {
             if (!InstalledTargetVerifier.matches(activity, InstalledTargetVerifier.target(plan))) {
                 continue;
             }
+            Listener completion = inFlightListeners.get(requestPackageName);
             if (!finishTrackedAttempt(requestPackageName, null)) {
                 continue;
             }
+            pendingInstallStore.clear();
+            if (completion != null) completion.onInstalled(plan.packageName);
             Log.i(
                     LOG_TAG,
                     "Reconciled OEM installer completion for " + plan.packageName
@@ -706,6 +786,7 @@ public final class SecurePackageInstaller {
     private boolean finishTrackedAttempt(String requestPackageName, List<File> fallbackFiles) {
         boolean wasTracked = inFlightPackages.remove(requestPackageName);
         inFlightPlans.remove(requestPackageName);
+        inFlightListeners.remove(requestPackageName);
         List<File> trackedFiles = inFlightFiles.remove(requestPackageName);
         deleteAll(trackedFiles == null ? fallbackFiles : trackedFiles);
         return wasTracked;

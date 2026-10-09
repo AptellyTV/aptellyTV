@@ -328,4 +328,12 @@
     <string name="install_download_size">下载大小与已核验安装包不符或超过限制，请稍后重试。</string>
     <string name="install_download_timeout">下载时间过长，请检查网络后重试。</string>
     <string name="install_download_cancelled">下载已取消，可以重新尝试。</string>
+    <string name="install_progress_known">已下载 %1$s / %2$s（%3$d%%）</string>
+    <string name="install_progress_unknown">已下载 %1$s</string>
+    <string name="install_download_cancelling">正在取消下载…</string>
+    <string name="setup_jellyfin">请先准备自己的 Jellyfin 服务器地址和账号。安装后添加服务器并登录，再播放自己的内容。</string>
+    <string name="setup_moonlight">请先在电脑上启用游戏串流服务。安装后添加电脑，完成 PIN 配对，再开始串流。</string>
+    <string name="setup_vpn">请先准备自己的 VPN 配置或订阅。安装后在应用内导入，确认系统 VPN 授权，再启用连接。</string>
+    <string name="setup_tailscale">请先准备自己的 Tailscale 账号。安装后登录并授权电视加入你的网络。</string>
+    <string name="setup_service_account">请先准备服务账号；部分内容需要会员和支持的地区。安装后登录，再检查播放和声音。</string>
 </resources>

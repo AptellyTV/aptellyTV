@@ -11,8 +11,12 @@ public final class DownloadBudget {
     public static final long MAX_SET_BYTES = 1024L * 1024 * 1024;
     public static final long RESERVE_BYTES = 64L * 1024 * 1024;
     public static final long TIMEOUT_NANOS = 15L * 60 * 1_000_000_000;
-    public enum Reason { SPACE, SIZE, TIMEOUT, CANCELLED }
+    public enum Reason { SPACE, SIZE, TIMEOUT, CANCELLED, INTEGRITY }
     public interface ReadGuard { void run() throws IOException; }
+    public interface Progress { void update(long received, long total); }
+    public static final class ReadFailure extends IOException {
+        ReadFailure(IOException cause) { super(cause); }
+    }
     public static final class Failure extends IOException {
         public final Reason reason;
         Failure(Reason reason) { super(reason.name()); this.reason = reason; }
@@ -22,6 +26,8 @@ public final class DownloadBudget {
     private final long started;
     private final long declaredTotal;
     private long received;
+    private Progress progress;
+    private boolean unknownSize;
 
     public DownloadBudget(long... sizes) throws Failure { this(System::nanoTime, sizes); }
 
@@ -30,6 +36,7 @@ public final class DownloadBudget {
         this.started = clock.getAsLong();
         long total = 0;
         for (long size : sizes) {
+            if (size == -1) unknownSize = true;
             if (size == 0 || size < -1 || size > MAX_FILE_BYTES) throw new Failure(Reason.SIZE);
             if (size > 0) total += size;
             if (total > MAX_SET_BYTES) throw new Failure(Reason.SIZE);
@@ -39,7 +46,22 @@ public final class DownloadBudget {
 
     public void preflight(long usableSpace) throws Failure {
         check();
-        if (usableSpace < 2 * declaredTotal + RESERVE_BYTES) throw new Failure(Reason.SPACE);
+        if (usableSpace < 2 * declaredTotal - received + RESERVE_BYTES) throw new Failure(Reason.SPACE);
+    }
+
+    public void progress(Progress callback) {
+        progress = callback;
+        if (callback != null) callback.update(received, unknownSize ? -1 : declaredTotal);
+    }
+
+    public void cached(long bytes) throws Failure {
+        if (bytes < 0 || bytes > declaredTotal) throw new Failure(Reason.SIZE);
+        received = bytes;
+    }
+
+    public void discardCached(long bytes) throws Failure {
+        if (bytes < 0 || bytes > received) throw new Failure(Reason.SIZE);
+        received -= bytes;
     }
 
     public int timeoutMillis(int maximum) throws Failure {
@@ -57,12 +79,19 @@ public final class DownloadBudget {
 
     public long copy(InputStream input, OutputStream output, long expected,
                      LongSupplier space, ReadGuard beforeRead) throws IOException {
-        long fileBytes = 0;
+        return copy(input, output, expected, 0, space, beforeRead);
+    }
+
+    public long copy(InputStream input, OutputStream output, long expected, long offset,
+                     LongSupplier space, ReadGuard beforeRead) throws IOException {
+        long fileBytes = offset;
         byte[] buffer = new byte[64 * 1024];
         while (true) {
             check();
             if (beforeRead != null) beforeRead.run();
-            int count = input.read(buffer);
+            int count;
+            try { count = input.read(buffer); }
+            catch (IOException brokenInput) { throw new ReadFailure(brokenInput); }
             check();
             if (count == -1) break;
             if (count == 0) continue;
@@ -75,6 +104,7 @@ public final class DownloadBudget {
             output.write(buffer, 0, count);
             fileBytes += count;
             received += count;
+            if (progress != null) progress.update(received, unknownSize ? -1 : declaredTotal);
         }
         if (fileBytes == 0 || (expected > 0 && fileBytes != expected)) throw new Failure(Reason.SIZE);
         return fileBytes;
