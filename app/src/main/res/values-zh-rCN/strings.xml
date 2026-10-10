@@ -336,4 +336,11 @@
     <string name="setup_vpn">请先准备自己的 VPN 配置或订阅。安装后在应用内导入，确认系统 VPN 授权，再启用连接。</string>
     <string name="setup_tailscale">请先准备自己的 Tailscale 账号。安装后登录并授权电视加入你的网络。</string>
     <string name="setup_service_account">请先准备服务账号；部分内容需要会员和支持的地区。安装后登录，再检查播放和声音。</string>
+    <string name="environment_check_title">电视环境自检</string>
+    <string name="environment_check_notice">Aptelly 会检查电视型号、系统、处理器和安装条件，帮助选择合适的应用来源。自检结果保存在本机。</string>
+    <string name="environment_check_start">开始检查</string>
+    <string name="environment_check_running">正在检查电视环境…</string>
+    <string name="environment_check_complete">环境自检完成</string>
+    <string name="environment_check_unknown">部分能力暂时无法确定，可在环境设置中重新检查。</string>
+    <string name="environment_check_repeat">重新进行环境自检</string>
 </resources>

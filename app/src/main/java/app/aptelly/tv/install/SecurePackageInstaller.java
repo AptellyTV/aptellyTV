@@ -1,5 +1,7 @@
 package app.aptelly.tv.install;
 
+import app.aptelly.tv.device.EnvironmentCheck;
+
 import android.app.Activity;
 import android.content.ActivityNotFoundException;
 import android.content.Intent;
@@ -95,6 +97,7 @@ public final class SecurePackageInstaller {
     }
 
     public void install(CatalogApp app, Listener listener) {
+        if (!EnvironmentCheck.ensure(activity, () -> install(app, listener))) return;
         reconcileCompletedInstalls();
         if (!app.supportsOneClickInstall()) {
             listener.onError(activity.getString(R.string.install_source_unverified));

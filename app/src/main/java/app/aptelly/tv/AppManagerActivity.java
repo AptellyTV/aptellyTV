@@ -80,6 +80,10 @@ public final class AppManagerActivity extends Activity {
     @Override
     protected void onResume() {
         super.onResume();
+        app.aptelly.tv.device.EnvironmentCheck.ensure(this, () -> {
+            deviceProfile = DeviceProfile.detect(this);
+            CatalogAvailability.configure(deviceProfile);
+        });
         PrimeVideoShortcutController.sync(this);
         hideSystemBars();
         packageInstaller.onHostResume();

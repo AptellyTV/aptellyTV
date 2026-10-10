@@ -336,4 +336,11 @@
     <string name="setup_vpn">Prepara tu configuración o suscripción VPN. Impórtala en la app, aprueba la solicitud VPN de Android y activa la conexión.</string>
     <string name="setup_tailscale">Prepara tu cuenta de Tailscale. Tras instalar, inicia sesión y autoriza al televisor a unirse a tu red.</string>
     <string name="setup_service_account">Prepara tu cuenta del servicio. Puede requerir una suscripción y una región admitida. Tras instalar, inicia sesión y comprueba la reproducción y el sonido.</string>
+    <string name="environment_check_title">Comprobación del televisor</string>
+    <string name="environment_check_notice">Aptelly comprueba el modelo, el sistema, el procesador y las condiciones de instalación para elegir fuentes de apps adecuadas. La comprobación se guarda en este televisor.</string>
+    <string name="environment_check_start">Iniciar comprobación</string>
+    <string name="environment_check_running">Comprobando el televisor…</string>
+    <string name="environment_check_complete">Comprobación terminada</string>
+    <string name="environment_check_unknown">Algunas capacidades son desconocidas. Puedes repetir la comprobación en Entorno.</string>
+    <string name="environment_check_repeat">Repetir comprobación</string>
 </resources>

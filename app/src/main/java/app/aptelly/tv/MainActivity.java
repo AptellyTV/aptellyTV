@@ -197,6 +197,10 @@ public final class MainActivity extends Activity {
     @Override
     protected void onResume() {
         super.onResume();
+        app.aptelly.tv.device.EnvironmentCheck.ensure(this, () -> {
+            deviceProfile = DeviceProfile.detect(this);
+            CatalogAvailability.configure(deviceProfile);
+        });
         PrimeVideoShortcutController.sync(this);
         TvAppShortcutController.sync(this);
         if (deviceProfile != null) {

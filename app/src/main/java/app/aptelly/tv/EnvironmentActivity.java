@@ -155,6 +155,9 @@ public final class EnvironmentActivity extends Activity {
             });
         });
         addAction(checkUpdate);
+        Button recheck = actionButton(getString(R.string.environment_check_repeat), false);
+        recheck.setOnClickListener(view -> app.aptelly.tv.device.EnvironmentCheck.repeat(this, this::rebuild));
+        addAction(recheck);
 
         TextView attribution = text(
                 getString(R.string.tmdb_attribution_notice),
